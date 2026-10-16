@@ -1,0 +1,14 @@
+HOW TO RUN!!!! FLUTTERRRRR
+
+Step 1:
+cmd -> ipconfig
+ipv4 copy paste and ip address
+
+step 2: 
+flutter termimal
+type this: flutter run -d web-server --web-hostname=xxx.xxx.xxx.xxx --web-port=8080  
+
+step 3:
+click the http://xxx.xxx.xxx.xxx//8080
+
+congratssss!!!!!
