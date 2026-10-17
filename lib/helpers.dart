@@ -56,50 +56,64 @@ Widget sectionTitle(String text) {
 // ======================================================
 
 // ======================================================
-// TMC EVENTEASE - LOGOUT
+// TMC EVENTEASE - SECURE SESSION LOGOUT
 // ======================================================
 
 Future<void> logoutEventEaseUser(BuildContext context) async {
   try {
-    // REAL API MODE:
-    // Delete the locally stored access token.
-    if (ApiConfig.useRealApi) {
-      await authTokenStorage.clear();
-    }
-
-    // Clear remembered demo login.
+    // 1. Clear remembered demo session.
     await demoSessionStorage.clear();
+
+    // 2. Remove any locally stored Laravel token.
+    await authTokenStorage.clear();
   } catch (error) {
-    debugPrint('Logout error: ${error.runtimeType}');
+    debugPrint(
+      'Logout error: ${error.runtimeType}',
+    );
 
     if (context.mounted) {
-      showMessage(context, 'Unable to complete logout. Please retry.');
+      showMessage(
+        context,
+        'Unable to complete logout. Please retry.',
+      );
     }
 
     return;
   }
 
-  // Clear mock authentication session.
+  // 3. Clear the active authentication session.
   authService.logout();
 
-  // Reset temporary account role.
+  // 4. Reset temporary student information.
+  savedName = '';
+  savedEmail = '';
+  savedStudentId = '';
+  savedDepartment = '';
+  savedCourse = '';
+  savedYear = '';
+  savedBlock = '';
+  savedPassword = '';
+
+  // 5. Restore default role.
   savedUserRole = 'student';
   demoScannerName = 'TMC Event Officer';
 
-  // Remove previous scan history.
+  // 6. Clear current-session scanner history.
   scanHistory.clear();
 
-  // Clear temporary account data when using API.
+  // 7. Clear API-specific temporary data when using
+  // the Laravel backend.
   if (ApiConfig.useRealApi) {
     clearTemporaryAccountData();
   }
 
   if (!context.mounted) return;
 
-  // Return to login and remove previous pages.
-  Navigator.of(
-    context,
-  ).pushAndRemoveUntil(animatedRoute(const LoginPage()), (route) => false);
+  // 8. Remove authenticated pages from navigation.
+  Navigator.of(context).pushAndRemoveUntil(
+    animatedRoute(const LoginPage()),
+        (route) => false,
+  );
 }
 
 // ======================================================

@@ -1,3 +1,4 @@
+
 part of 'main.dart';
 
 // ======================================================
@@ -17,7 +18,6 @@ class _SessionGateState extends State<SessionGate> {
   @override
   void initState() {
     super.initState();
-
     _restoreFuture = _restoreSession();
   }
 
@@ -27,15 +27,13 @@ class _SessionGateState extends State<SessionGate> {
 
   Future<bool> _restoreSession() async {
     // REAL API MODE:
-    // Until the backend supports session validation or
-    // token refresh, require a fresh login after restart.
+    // Do not restore a local demo account in Laravel mode.
     if (ApiConfig.useRealApi) {
       try {
         await authTokenStorage.clear();
       } catch (error) {
         debugPrint(
-          'Unable to clear old API token: '
-          '${error.runtimeType}',
+          'Unable to clear API token: ${error.runtimeType}',
         );
       }
 
@@ -43,32 +41,58 @@ class _SessionGateState extends State<SessionGate> {
     }
 
     // DEMO MODE:
-    // Restore only the remembered student demo account.
+    // Restore only an explicitly remembered student.
     try {
-      final rememberStudent = await demoSessionStorage.shouldRestoreStudent();
+      final rememberStudent =
+      await demoSessionStorage.shouldRestoreStudent();
 
       if (!rememberStudent) {
         return false;
       }
 
-      final user = await authService.login(
-        email: 'student@test.local',
-        password: 'StudentDemo123!',
-      );
+      final profile = await authService.loadStudentProfile();
 
-      if (user == null || !user.isStudent) {
+      if (profile == null) {
         await demoSessionStorage.clear();
         return false;
       }
 
+      final schoolId = profile['school_id'] ?? '';
+
+      if (!RegExp(r'^\d{2}-\d{6}$').hasMatch(schoolId)) {
+        await demoSessionStorage.clear();
+        return false;
+      }
+
+      // Restore the in-memory authentication identity
+      // without automatically reusing a stored password.
+      authService.startLocalStudentSession(
+        name: profile['name'] ?? 'Student',
+        email: profile['email'] ?? '',
+      );
+
+      savedName = profile['name'] ?? 'Student';
+      savedEmail = profile['email'] ?? '';
+      savedStudentId = schoolId;
+      savedDepartment = profile['department'] ?? '';
+      savedCourse = profile['course'] ?? '';
+      savedYear = profile['year'] ?? '';
+      savedBlock = profile['block'] ?? '';
+      savedPassword = '';
       savedUserRole = 'student';
+      demoScannerName = 'TMC Event Officer';
 
       return true;
     } catch (error) {
       debugPrint(
-        'Demo session restoration failed: '
-        '${error.runtimeType}',
+        'Demo session restoration failed: ${error.runtimeType}',
       );
+
+      authService.logout();
+
+      try {
+        await demoSessionStorage.clear();
+      } catch (_) {}
 
       return false;
     }
@@ -85,13 +109,13 @@ class _SessionGateState extends State<SessionGate> {
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator(color: navy)),
+            body: Center(
+              child: CircularProgressIndicator(color: navy),
+            ),
           );
         }
 
-        final restored = snapshot.data ?? false;
-
-        if (restored) {
+        if (snapshot.data == true) {
           return const MainPage();
         }
 

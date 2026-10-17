@@ -45,9 +45,9 @@ app.*.map.json
 /android/app/release
 
 # Flutter and Dart
-.dart_tool/
+
 .flutter-plugins
-.flutter-plugins-dependencies
+
 .packages
 build/
 coverage/
@@ -63,15 +63,13 @@ android/key.properties
 .env.*
 *.pem
 
-# Android Studio / IntelliJ
-.idea/
-*.iml
+
 
 # VS Code local settings
 .vscode/
 
 # Temporary files
-*.log
+
 *.tmp
-.DS_Store
+
 Thumbs.db

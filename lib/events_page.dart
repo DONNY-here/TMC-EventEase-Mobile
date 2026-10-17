@@ -1,11 +1,8 @@
-
 part of 'main.dart';
 
-// ======================================================
-// TMC EVENTEASE - ENHANCED EVENTS PAGE
-// LIGHT AND DARK MODE SUPPORTED
-// ======================================================
-
+// TMC EventEase — Events discovery screen.
+// In Demo Mode, eventList is preview data. The Laravel events endpoint
+// will be integrated here later; local events are never represented as live.
 class EventsPage extends StatefulWidget {
   const EventsPage({super.key});
 
@@ -14,576 +11,208 @@ class EventsPage extends StatefulWidget {
 }
 
 class _EventsPageState extends State<EventsPage> {
-  final TextEditingController searchController =
-  TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  String _search = '';
+  String _scope = 'All Events';
+  String _department = 'All Departments';
+  String _status = 'All';
+  bool _showFilters = false;
 
-  String searchText = '';
-  String selectedScope = 'All Events';
-  String selectedDepartment = 'All Departments';
+  static const _deepBlue = Color(0xFF102A4C);
+  static const _blue = Color(0xFF215B99);
+  static const _gold = Color(0xFFFFCB4D);
+  static const _mint = Color(0xFF168566);
 
-  bool showFilters = true;
+  ColorScheme get _colors => Theme.of(context).colorScheme;
 
-  static const Color darkBlue = Color(0xFF0D3062);
-  static const Color mediumBlue = Color(0xFF194E91);
+  bool _registered(Event event) =>
+      registeredEvents.any((item) => eventKey(item) == eventKey(event));
 
-  // ====================================================
-  // LIGHT / DARK MODE COLORS
-  // ====================================================
-
-  bool get _isDark =>
-      Theme.of(context).brightness == Brightness.dark;
-
-  Color get _pageBackground =>
-      Theme.of(context).scaffoldBackgroundColor;
-
-  Color get _surface =>
-      Theme.of(context).colorScheme.surface;
-
-  Color get _primaryText =>
-      Theme.of(context).colorScheme.onSurface;
-
-  Color get _secondaryText =>
-      Theme.of(context).colorScheme.onSurfaceVariant;
-
-  Color get _outline =>
-      Theme.of(context).colorScheme.outlineVariant;
-
-  Color get _accent =>
-      _isDark ? yellow : navy;
-
-  Color get _softBlue =>
-      _isDark
-          ? const Color(0xFF253A57)
-          : const Color(0xFFEAF2FB);
-
-  Color get _softYellow =>
-      _isDark
-          ? const Color(0xFF35425A)
-          : const Color(0xFFFFF3CF);
-
-  // ====================================================
-  // FILTER OPTIONS
-  // ====================================================
-
-  final List<String> scopeOptions = const [
-    'All Events',
-    'School-Wide',
-    'Department-Specific',
-  ];
-
-  List<String> get departmentOptions {
-    final departments = eventList
-        .where(
-          (event) =>
-      event.scope.toLowerCase() ==
-          'department-specific',
-    )
-        .map((event) => event.department.trim())
-        .where(
-          (department) =>
-      department.isNotEmpty &&
-          department != 'All Departments',
-    )
-        .toSet()
-        .toList()
-      ..sort();
-
-    return ['All Departments', ...departments];
+  DateTime? _eventDate(String raw) {
+    final text = raw.trim();
+    final iso = DateTime.tryParse(text);
+    if (iso != null) return DateTime(iso.year, iso.month, iso.day);
+    final match = RegExp(
+      r'^(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})$',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (match == null) return null;
+    const names = [
+      'january',
+      'february',
+      'march',
+      'april',
+      'may',
+      'june',
+      'july',
+      'august',
+      'september',
+      'october',
+      'november',
+      'december',
+    ];
+    final month = names.indexOf(match.group(1)!.toLowerCase()) + 1;
+    final day = int.parse(match.group(2)!);
+    final year = int.parse(match.group(3)!);
+    final parsed = DateTime(year, month, day);
+    if (parsed.year != year || parsed.month != month || parsed.day != day) {
+      return null;
+    }
+    return parsed;
   }
 
-  // ====================================================
-  // SEARCH AND FILTER EVENTS
-  // ====================================================
+  bool _isPast(Event event) {
+    final date = _eventDate(event.date);
+    if (date == null) return false;
+    final now = DateTime.now();
+    return date.isBefore(DateTime(now.year, now.month, now.day));
+  }
 
-  List<Event> get filteredEvents {
-    return eventList.where((event) {
-      final matchesSearch =
-      event.title.toLowerCase().contains(
-        searchText.toLowerCase(),
-      );
+  List<String> get _departments {
+    final values =
+        eventList
+            .where((e) => e.scope == 'Department-Specific')
+            .map((e) => e.department.trim())
+            .where((v) => v.isNotEmpty && v != 'All Departments')
+            .toSet()
+            .toList()
+          ..sort();
+    return ['All Departments', ...values];
+  }
 
-      final matchesScope =
-          selectedScope == 'All Events' ||
-              event.scope == selectedScope;
-
+  List<Event> get _filteredEvents {
+    // Never display bundled eventList entries as official Laravel records.
+    if (ApiConfig.useRealApi) return [];
+    final query = _search.trim().toLowerCase();
+    final events = eventList.where((event) {
+      final matchesText =
+          query.isEmpty ||
+          '${event.title} ${event.venue} ${event.description} ${event.department}'
+              .toLowerCase()
+              .contains(query);
+      final matchesScope = _scope == 'All Events' || event.scope == _scope;
       final matchesDepartment =
-          selectedDepartment == 'All Departments' ||
-              event.department == selectedDepartment;
-
-      return matchesSearch &&
-          matchesScope &&
-          matchesDepartment;
+          _department == 'All Departments' || event.department == _department;
+      final isRegistered = _registered(event);
+      final past = _isPast(event);
+      final matchesStatus = switch (_status) {
+        'Registered' => isRegistered,
+        'Upcoming' => !past && _eventDate(event.date) != null,
+        'Past' => past,
+        _ => true,
+      };
+      return matchesText && matchesScope && matchesDepartment && matchesStatus;
     }).toList();
+    events.sort((a, b) {
+      final aDate = _eventDate(a.date);
+      final bDate = _eventDate(b.date);
+      if (aDate == null && bDate == null) return a.title.compareTo(b.title);
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+      return aDate.compareTo(bDate);
+    });
+    return events;
   }
 
-  void clearFilters() {
-    searchController.clear();
-
+  void _clearFilters() {
+    _searchController.clear();
     setState(() {
-      searchText = '';
-      selectedScope = 'All Events';
-      selectedDepartment = 'All Departments';
+      _search = '';
+      _scope = 'All Events';
+      _department = 'All Departments';
+      _status = 'All';
     });
   }
 
   @override
   void dispose() {
-    searchController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  // ====================================================
-  // PAGE HEADER
-  // ====================================================
-
-  Widget buildHeader() {
-    return Container(
-      width: double.infinity,
-      clipBehavior: Clip.antiAlias,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            darkBlue,
-            mediumBlue,
-            darkBlue,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(28),
-        ),
+  Widget _header() => Container(
+    padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        colors: [_deepBlue, _blue],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
-      child: Stack(
-        children: [
-          // Decorative blue circle
-          Positioned(
-            right: -80,
-            top: -75,
-            child: Container(
-              width: 240,
-              height: 240,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(
-                  alpha: 0.035,
-                ),
-              ),
-            ),
-          ),
-
-          // Decorative yellow accent
-          Positioned(
-            right: -55,
-            bottom: -70,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: yellow,
-              ),
-            ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              22, 20, 22, 30,
-            ),
-            child: Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(
-                          alpha: 0.12,
-                        ),
-                        borderRadius:
-                        BorderRadius.circular(13),
-                      ),
-                      child: const Icon(
-                        Icons.event_note_rounded,
-                        color: yellow,
-                        size: 28,
-                      ),
-                    ),
-
-                    const SizedBox(width: 11),
-
-                    Expanded(
-                      child: RichText(
-                        text: const TextSpan(
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: 'TMC ',
-                              style: TextStyle(
-                                color: Colors.white,
-                              ),
-                            ),
-                            TextSpan(
-                              text: 'EventEase',
-                              style: TextStyle(
-                                color: yellow,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    IconButton(
-                      tooltip: 'Announcements',
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          animatedRoute(
-                            const AnnouncementsPage(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(
-                        Icons.notifications_outlined,
-                        color: Colors.white,
-                        size: 27,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 26),
-
-                const Text(
-                  'Events',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 34,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ====================================================
-  // SEARCH FIELD
-  // ====================================================
-
-  Widget buildSearchField() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: _outline),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: _isDark ? 0.20 : 0.045,
-            ),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: searchController,
-        style: TextStyle(
-          color: _primaryText,
-          fontSize: 14,
-        ),
-        cursorColor: _accent,
-        onChanged: (value) {
-          setState(() {
-            searchText = value;
-          });
-        },
-        decoration: InputDecoration(
-          hintText: 'Search event by title...',
-          hintStyle: TextStyle(
-            color: _secondaryText,
-            fontSize: 14,
-          ),
-          prefixIcon: Icon(
-            Icons.search_rounded,
-            color: _secondaryText,
-            size: 25,
-          ),
-          suffixIcon: IconButton(
-            tooltip: 'Show or hide filters',
-            onPressed: () {
-              setState(() {
-                showFilters = !showFilters;
-              });
-            },
-            icon: Icon(
-              Icons.tune_rounded,
-              color: showFilters
-                  ? _accent
-                  : _secondaryText,
-            ),
-          ),
-          filled: true,
-          fillColor: _surface,
-          contentPadding:
-          const EdgeInsets.symmetric(
-            horizontal: 15,
-            vertical: 18,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(19),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(19),
-            borderSide: BorderSide(
-              color: _outline,
-            ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(19),
-            borderSide: BorderSide(
-              color: _accent,
-              width: 1.5,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ====================================================
-  // REUSABLE DROPDOWN DESIGN
-  // ====================================================
-
-  InputDecoration _dropdownDecoration({
-    required String label,
-    required IconData icon,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(
-        color: _secondaryText,
-      ),
-      prefixIcon: Icon(
-        icon,
-        color: _secondaryText,
-        size: 20,
-      ),
-      filled: true,
-      fillColor: _surface,
-      contentPadding:
-      const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 15,
-      ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(17),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(17),
-        borderSide: BorderSide(
-          color: _outline,
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(17),
-        borderSide: BorderSide(
-          color: _accent,
-          width: 1.5,
-        ),
-      ),
-    );
-  }
-
-  // ====================================================
-  // EVENT TYPE FILTER
-  // ====================================================
-
-  Widget buildScopeFilter() {
-    return DropdownButtonFormField<String>(
-      key: ValueKey('scope-$selectedScope'),
-      initialValue: selectedScope,
-      isExpanded: true,
-      dropdownColor: _surface,
-      style: TextStyle(
-        color: _primaryText,
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-      ),
-      decoration: _dropdownDecoration(
-        label: 'Event Type',
-        icon: Icons.category_outlined,
-      ),
-      items: scopeOptions.map((scope) {
-        return DropdownMenuItem<String>(
-          value: scope,
-          child: Text(
-            scope,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-            style: TextStyle(
-              fontSize: 12,
-              color: _primaryText,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        );
-      }).toList(),
-      onChanged: (value) {
-        if (value == null) return;
-
-        setState(() {
-          selectedScope = value;
-        });
-      },
-    );
-  }
-
-  // ====================================================
-  // DEPARTMENT FILTER
-  // ====================================================
-
-  Widget buildDepartmentFilter() {
-    return DropdownButtonFormField<String>(
-      key: ValueKey(
-        'department-$selectedDepartment',
-      ),
-      initialValue: selectedDepartment,
-      isExpanded: true,
-      dropdownColor: _surface,
-      style: TextStyle(
-        color: _primaryText,
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-      ),
-      decoration: _dropdownDecoration(
-        label: 'Department',
-        icon: Icons.account_balance_outlined,
-      ),
-      items: departmentOptions.map((department) {
-        return DropdownMenuItem<String>(
-          value: department,
-          child: Text(
-            department,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12,
-              color: _primaryText,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        );
-      }).toList(),
-      onChanged: (value) {
-        if (value == null) return;
-
-        setState(() {
-          selectedDepartment = value;
-        });
-      },
-    );
-  }
-
-  // ====================================================
-  // FILTER SECTION
-  // ====================================================
-
-  Widget buildFilters() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth >= 350) {
-          return Row(
-            children: [
-              Expanded(
-                child: buildScopeFilter(),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: buildDepartmentFilter(),
-              ),
-            ],
-          );
-        }
-
-        return Column(
+      borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            buildScopeFilter(),
-            const SizedBox(height: 11),
-            buildDepartmentFilter(),
+            const Icon(Icons.event_available_rounded, color: _gold, size: 28),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'eventease.',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 23,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Campus announcements',
+              onPressed: () => Navigator.push(
+                context,
+                animatedRoute(const AnnouncementsPage()),
+              ),
+              icon: const Icon(
+                Icons.notifications_none_rounded,
+                color: Colors.white,
+              ),
+            ),
           ],
-        );
-      },
-    );
-  }
+        ),
+        const SizedBox(height: 22),
+        const Text(
+          'Explore events',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 29,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Discover activities and opportunities across TMC.',
+          style: TextStyle(color: Color(0xFFD9E6F4), fontSize: 13),
+        ),
+      ],
+    ),
+  );
 
-  // ====================================================
-  // EVENT ICON
-  // ====================================================
-
-  IconData eventIcon(Event event) {
-    final title = event.title.toLowerCase();
-
-    if (title.contains('esport') ||
-        title.contains('gaming')) {
-      return Icons.sports_esports_rounded;
-    }
-
-    if (title.contains('web') ||
-        title.contains('programming') ||
-        title.contains('coding')) {
-      return Icons.code_rounded;
-    }
-
-    if (title.contains('leadership')) {
-      return Icons.groups_rounded;
-    }
-
-    if (title.contains('sports')) {
-      return Icons.emoji_events_rounded;
-    }
-
-    return Icons.event_note_rounded;
-  }
-
-  // ====================================================
-  // EVENT INFORMATION ROW
-  // ====================================================
-
-  Widget eventInfo({
-    required IconData icon,
-    required String value,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 5),
+  Widget _sourceNotice() {
+    final real = ApiConfig.useRealApi;
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: _colors.surface,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: _colors.outlineVariant),
+      ),
       child: Row(
         children: [
           Icon(
-            icon,
-            size: 15,
-            color: _secondaryText,
+            real ? Icons.cloud_off_outlined : Icons.science_outlined,
+            color: real ? _colors.onSurfaceVariant : _blue,
           ),
-          const SizedBox(width: 7),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              real
+                  ? 'Live events are not connected yet. No server data is available on this screen.'
+                  : 'Demo Mode · These are sample events stored in the app, not verified campus records.',
               style: TextStyle(
+                color: _colors.onSurfaceVariant,
                 fontSize: 12,
-                color: _secondaryText,
+                height: 1.4,
               ),
             ),
           ),
@@ -592,143 +221,236 @@ class _EventsPageState extends State<EventsPage> {
     );
   }
 
-  // ====================================================
-  // ENHANCED EVENT CARD
-  // ====================================================
-
-  Widget buildEventCard(Event event) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(23),
-        border: Border.all(color: _outline),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: _isDark ? 0.20 : 0.06,
+  Widget _dropdown({
+    required String label,
+    required String value,
+    required List<String> options,
+    required ValueChanged<String> onChanged,
+  }) => DropdownButtonFormField<String>(
+    key: ValueKey('$label:$value'),
+    initialValue: options.contains(value) ? value : options.first,
+    isExpanded: true,
+    decoration: InputDecoration(
+      labelText: label,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    ),
+    items: options
+        .map(
+          (option) => DropdownMenuItem<String>(
+            value: option,
+            child: Text(
+              option,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12),
             ),
-            blurRadius: 18,
-            offset: const Offset(0, 7),
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(23),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(23),
-          onTap: () {
-            Navigator.push(
-              context,
-              animatedRoute(
-                EventDetailsPage(event: event),
-              ),
+        )
+        .toList(),
+    onChanged: (value) {
+      if (value != null) onChanged(value);
+    },
+  );
+
+  Widget _filters() => Column(
+    children: [
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final children = [
+            _dropdown(
+              label: 'Event scope',
+              value: _scope,
+              options: const [
+                'All Events',
+                'School-Wide',
+                'Department-Specific',
+              ],
+              onChanged: (v) => setState(() => _scope = v),
+            ),
+            _dropdown(
+              label: 'Department',
+              value: _department,
+              options: _departments,
+              onChanged: (v) => setState(() => _department = v),
+            ),
+          ];
+          if (constraints.maxWidth < 360) {
+            return Column(
+              children: [children[0], const SizedBox(height: 10), children[1]],
             );
+          }
+          return Row(
+            children: [
+              Expanded(child: children[0]),
+              const SizedBox(width: 9),
+              Expanded(child: children[1]),
+            ],
+          );
+        },
+      ),
+      const SizedBox(height: 8),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton.icon(
+          onPressed: _clearFilters,
+          icon: const Icon(Icons.restart_alt_rounded, size: 17),
+          label: const Text('Reset filters'),
+        ),
+      ),
+    ],
+  );
+
+  Widget _statusFilters() => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      children: [
+        for (final status in const ['All', 'Upcoming', 'Registered', 'Past'])
+          Padding(
+            padding: const EdgeInsets.only(right: 7),
+            child: ChoiceChip(
+              label: Text(status),
+              selected: _status == status,
+              onSelected: (_) => setState(() => _status = status),
+            ),
+          ),
+      ],
+    ),
+  );
+
+  IconData _icon(Event event) {
+    final title = event.title.toLowerCase();
+    if (title.contains('esport') || title.contains('gaming')) {
+      return Icons.sports_esports_rounded;
+    }
+    if (title.contains('code') ||
+        title.contains('program') ||
+        title.contains('web')) {
+      return Icons.code_rounded;
+    }
+    if (title.contains('sport') || title.contains('athletic')) {
+      return Icons.emoji_events_rounded;
+    }
+    if (title.contains('leadership')) return Icons.groups_rounded;
+    return Icons.event_rounded;
+  }
+
+  Widget _pill(String label, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(30),
+      color: color.withValues(alpha: .12),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: color),
+    ),
+  );
+
+  Widget _detailLine(IconData icon, String value) => Padding(
+    padding: const EdgeInsets.only(top: 5),
+    child: Row(
+      children: [
+        Icon(icon, size: 15, color: _colors.onSurfaceVariant),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: _colors.onSurfaceVariant, fontSize: 12),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _eventCard(Event event) {
+    final registered = _registered(event);
+    final past = _isPast(event);
+    final dateKnown = _eventDate(event.date) != null;
+    final status = registered
+        ? 'REGISTERED'
+        : past
+        ? 'PAST'
+        : dateKnown
+        ? 'UPCOMING'
+        : 'DATE UNCONFIRMED';
+    final statusColor = registered
+        ? _blue
+        : past
+        ? _colors.onSurfaceVariant
+        : _mint;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: _colors.surface,
+        borderRadius: BorderRadius.circular(21),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(21),
+          onTap: () async {
+            await Navigator.push(
+              context,
+              animatedRoute(EventDetailsPage(event: event)),
+            );
+            if (mounted) setState(() {});
           },
-          child: Padding(
+          child: Container(
             padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(21),
+              border: Border.all(color: _colors.outlineVariant),
+            ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // EVENT ICON TILE
                 Container(
-                  width: 82,
-                  height: 105,
-                  clipBehavior: Clip.antiAlias,
+                  width: 70,
+                  height: 95,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        darkBlue,
-                        mediumBlue,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius:
-                    BorderRadius.circular(19),
+                    gradient: const LinearGradient(colors: [_deepBlue, _blue]),
+                    borderRadius: BorderRadius.circular(17),
                   ),
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: -25,
-                        bottom: -38,
-                        child: Container(
-                          width: 85,
-                          height: 85,
-                          decoration:
-                          const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: yellow,
-                          ),
-                        ),
-                      ),
-                      Center(
-                        child: Icon(
-                          eventIcon(event),
-                          color: yellow,
-                          size: 37,
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: Icon(_icon(event), size: 32, color: _gold),
                 ),
-
-                const SizedBox(width: 13),
-
-                // EVENT DETAILS
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         event.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: _primaryText,
-                          fontSize: 15,
+                          color: _colors.onSurface,
+                          fontSize: 14,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-
-                      const SizedBox(height: 8),
-
-                      eventInfo(
-                        icon:
-                        Icons.calendar_today_outlined,
-                        value: event.date,
-                      ),
-
-                      eventInfo(
-                        icon: Icons.access_time_rounded,
-                        value: event.time,
-                      ),
-
-                      eventInfo(
-                        icon:
-                        Icons.location_on_outlined,
-                        value: event.venue,
+                      const SizedBox(height: 7),
+                      _detailLine(Icons.calendar_month_outlined, event.date),
+                      _detailLine(Icons.schedule_outlined, event.time),
+                      _detailLine(Icons.place_outlined, event.venue),
+                      const SizedBox(height: 9),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          _pill(status, statusColor),
+                          _pill(
+                            event.scope == 'School-Wide'
+                                ? 'SCHOOL-WIDE'
+                                : 'DEPARTMENT',
+                            _colors.onSurfaceVariant,
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-
-                const SizedBox(width: 6),
-
-                // ARROW INDICATOR
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: _softYellow,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.chevron_right_rounded,
-                    color: _accent,
-                    size: 26,
-                  ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: _colors.onSurfaceVariant,
                 ),
               ],
             ),
@@ -738,191 +460,122 @@ class _EventsPageState extends State<EventsPage> {
     );
   }
 
-  // ====================================================
-  // EMPTY RESULTS
-  // ====================================================
-
-  Widget buildEmptyState() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 20,
-        vertical: 38,
-      ),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _outline),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: _softBlue,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.event_busy_outlined,
-              color: _accent,
-              size: 43,
-            ),
+  Widget _empty({required bool liveMode}) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(26),
+    decoration: BoxDecoration(
+      color: _colors.surface,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: _colors.outlineVariant),
+    ),
+    child: Column(
+      children: [
+        Icon(
+          liveMode ? Icons.cloud_off_outlined : Icons.event_busy_outlined,
+          size: 42,
+          color: _blue,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          liveMode ? 'Live events unavailable' : 'No matching events',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 17,
+            color: _colors.onSurface,
           ),
-
-          const SizedBox(height: 15),
-
-          Text(
-            'No Events Found',
-            style: TextStyle(
-              color: _primaryText,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          liveMode
+              ? 'Laravel event loading has not been connected. Switch to Demo Mode to preview the event list.'
+              : 'Try a different keyword or reset your filters.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.4,
+            color: _colors.onSurfaceVariant,
           ),
-
-          const SizedBox(height: 8),
-
-          Text(
-            'Try adjusting your search or '
-                'selecting different filters.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: _secondaryText,
-              fontSize: 13,
-              height: 1.5,
-            ),
-          ),
-
-          const SizedBox(height: 13),
-
+        ),
+        if (!liveMode) ...[
+          const SizedBox(height: 9),
           TextButton.icon(
-            onPressed: clearFilters,
-            style: TextButton.styleFrom(
-              foregroundColor: _accent,
-            ),
-            icon: const Icon(
-              Icons.refresh_rounded,
-            ),
-            label: const Text(
-              'Clear Filters',
-            ),
+            onPressed: _clearFilters,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Clear filters'),
           ),
         ],
-      ),
-    );
-  }
-
-  // ====================================================
-  // MAIN EVENTS PAGE UI
-  // ====================================================
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
-    final events = filteredEvents;
-
+    final events = _filteredEvents;
+    final realMode = ApiConfig.useRealApi;
     return Scaffold(
-      backgroundColor: _pageBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.zero,
           children: [
-            // BLUE HEADER
-            buildHeader(),
-
-            // DISCOVER EVENTS
+            _header(),
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                19, 25, 19, 16,
-              ),
+              padding: const EdgeInsets.fromLTRB(17, 20, 17, 28),
               child: Column(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Discover Events',
-                    style: TextStyle(
-                      color: _primaryText,
-                      fontSize: 25,
-                      fontWeight: FontWeight.w900,
+                  _sourceNotice(),
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _search = value),
+                    enabled: !realMode,
+                    decoration: InputDecoration(
+                      hintText: 'Search titles, venues, or keywords',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: IconButton(
+                        tooltip: 'Show or hide filters',
+                        onPressed: realMode
+                            ? null
+                            : () =>
+                                  setState(() => _showFilters = !_showFilters),
+                        icon: const Icon(Icons.tune_rounded),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                   ),
-
-                  const SizedBox(height: 5),
-
-                  Text(
-                    'Find activities, workshops, '
-                        'and campus events.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: _secondaryText,
-                    ),
-                  ),
-
-                  const SizedBox(height: 22),
-
-                  // SEARCH FIELD
-                  buildSearchField(),
-
-                  // EVENT TYPE / DEPARTMENT FILTERS
-                  if (showFilters) ...[
-                    const SizedBox(height: 15),
-                    buildFilters(),
+                  if (!realMode) ...[
+                    const SizedBox(height: 13),
+                    _statusFilters(),
+                    if (_showFilters) ...[
+                      const SizedBox(height: 12),
+                      _filters(),
+                    ],
                   ],
-                ],
-              ),
-            ),
-
-            // EVENT RESULTS
-            Container(
-              padding: const EdgeInsets.fromLTRB(
-                19, 21, 19, 28,
-              ),
-              decoration: BoxDecoration(
-                color: _pageBackground,
-                border: Border(
-                  top: BorderSide(
-                    color: _outline,
-                  ),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      bottom: 15,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.event_available_rounded,
-                          color: _accent,
-                          size: 20,
+                  const SizedBox(height: 19),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.event_note_rounded,
+                        size: 19,
+                        color: _colors.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        realMode ? 'Events' : '${events.length} events found',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: _colors.onSurface,
                         ),
-
-                        const SizedBox(width: 8),
-
-                        Text(
-                          '${events.length} '
-                              '${events.length == 1 ? 'Event' : 'Events'} Found',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: _primaryText,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-
+                  const SizedBox(height: 12),
                   if (events.isEmpty)
-                    buildEmptyState()
+                    _empty(liveMode: realMode)
                   else
-                    ...events.map(
-                          (event) =>
-                          buildEventCard(event),
-                    ),
+                    ...events.map(_eventCard),
                 ],
               ),
             ),

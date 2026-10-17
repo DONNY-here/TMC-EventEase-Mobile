@@ -15,6 +15,23 @@ class EventDetailsPage extends StatefulWidget {
 }
 
 class _EventDetailsPageState extends State<EventDetailsPage> {
+  bool _showRequirements = false;
+
+  bool get _isRegistered => registeredEvents.any(
+    (event) => eventKey(event) == eventKey(widget.event),
+  );
+
+  int get _passedRequirementCount => [
+    _profileComplete,
+    _departmentEligible,
+    _courseEligible,
+    _yearEligible,
+    _hasAvailableSlot,
+    _isRegistered || widget.event.registrationOpen,
+    !_deadlinePassed,
+    _blockEligible,
+  ].where((passed) => passed).length;
+
   // ====================================================
   // THEME COLORS
   // ====================================================
@@ -84,7 +101,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   bool get _blockEligible => widget.event.allowedBlocks.contains(savedBlock);
 
   bool get _hasAvailableSlot {
-    final registered = registeredEvents.contains(widget.event);
+    final registered = _isRegistered;
 
     final total = widget.event.currentParticipants + (registered ? 1 : 0);
 
@@ -102,7 +119,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       widget.event.registrationOpen;
 
   int get _displayParticipantCount {
-    final registered = registeredEvents.contains(widget.event);
+    final registered = _isRegistered;
 
     return widget.event.currentParticipants + (registered ? 1 : 0);
   }
@@ -117,7 +134,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   bool get _certificateEligible {
     final key = eventKey(widget.event);
 
-    return registeredEvents.contains(widget.event) &&
+    return _isRegistered &&
         attendanceStatus[key] == 'Present' &&
         eventRatings.containsKey(key);
   }
@@ -403,7 +420,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   // ====================================================
 
   Future<void> registerEvent() async {
-    if (registeredEvents.contains(widget.event)) {
+    if (_isRegistered) {
       showMessage(context, 'You are already registered for this event.');
       return;
     }
@@ -460,7 +477,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     if (!confirm || !mounted) return;
 
     // Recheck requirements after confirmation.
-    if (registeredEvents.contains(widget.event)) {
+    if (_isRegistered) {
       showMessage(context, 'You are already registered for this event.');
       return;
     }
@@ -898,7 +915,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final registered = registeredEvents.contains(widget.event);
+    final registered = _isRegistered;
 
     final verified = registered || _eligibleToRegister;
 
@@ -924,6 +941,43 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         ),
       ),
 
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
+          decoration: BoxDecoration(
+            color: _cardBackground,
+            border: Border(top: BorderSide(color: _cardBorder)),
+          ),
+          child: _isRegistered
+              ? _registeredBanner()
+              : SizedBox(
+                  height: 54,
+                  child: ElevatedButton.icon(
+                    onPressed: _eligibleToRegister ? registerEvent : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: yellow,
+                      foregroundColor: navy,
+                      disabledBackgroundColor: _cardBorder,
+                      disabledForegroundColor: _secondaryText,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: Icon(
+                      _eligibleToRegister
+                          ? Icons.how_to_reg_rounded
+                          : Icons.block_rounded,
+                    ),
+                    label: Text(
+                      _eligibleToRegister
+                          ? 'Confirm Registration'
+                          : 'Not Eligible to Register',
+                    ),
+                  ),
+                ),
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
         child: Column(
@@ -1019,6 +1073,44 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               ),
             ),
 
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Chip(
+                  avatar: const Icon(Icons.calendar_today_rounded, size: 16),
+                  label: Text(widget.event.date),
+                  visualDensity: VisualDensity.compact,
+                ),
+                Chip(
+                  avatar: const Icon(Icons.access_time_rounded, size: 16),
+                  label: Text(widget.event.time),
+                  visualDensity: VisualDensity.compact,
+                ),
+                Chip(
+                  avatar: const Icon(Icons.place_outlined, size: 16),
+                  label: Text(widget.event.venue),
+                  visualDensity: VisualDensity.compact,
+                ),
+                Chip(
+                  avatar: Icon(
+                    _isRegistered
+                        ? Icons.check_circle_outline
+                        : Icons.info_outline,
+                    size: 16,
+                  ),
+                  label: Text(
+                    _isRegistered
+                        ? 'Registered (Demo)'
+                        : _deadlinePassed || !widget.event.registrationOpen
+                        ? 'Registration closed'
+                        : 'Registration open (Demo)',
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
             const SizedBox(height: 18),
 
             // ==========================================
@@ -1130,6 +1222,22 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         '${widget.event.capacity} slots',
                   ),
 
+                  const SizedBox(height: 10),
+                  LinearProgressIndicator(
+                    value: widget.event.capacity <= 0
+                        ? 0
+                        : (_displayParticipantCount / widget.event.capacity)
+                              .clamp(0.0, 1.0),
+                    minHeight: 6,
+                    borderRadius: BorderRadius.circular(6),
+                    backgroundColor: _cardBorder,
+                    color: _accentColor,
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'Demo estimate · not live server availability',
+                    style: TextStyle(color: _secondaryText, fontSize: 11),
+                  ),
                   _divider(height: 16),
 
                   _participantInfoRow(
@@ -1144,139 +1252,153 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             const SizedBox(height: 28),
 
             // ==========================================
-            // REGISTRATION VERIFICATION
+            // REGISTRATION VERIFICATION - COMPACT SUMMARY
             // ==========================================
             _sectionHeading('Registration Verification'),
-
             const SizedBox(height: 12),
-
             _card(
+              padding: const EdgeInsets.all(12),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _verificationRow(
-                    label: 'Profile Information',
-                    value: _profileComplete
-                        ? 'Student profile is complete'
-                        : 'Complete your profile first',
-                    passed: _profileComplete,
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () =>
+                        setState(() => _showRequirements = !_showRequirements),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _isRegistered || _eligibleToRegister
+                                ? Icons.verified_rounded
+                                : Icons.fact_check_outlined,
+                            color: _isRegistered || _eligibleToRegister
+                                ? Colors.green
+                                : _accentColor,
+                            size: 27,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _isRegistered
+                                      ? 'Registration confirmed'
+                                      : _eligibleToRegister
+                                      ? 'Eligible to join'
+                                      : 'Requirements need attention',
+                                  style: TextStyle(
+                                    color: _primaryText,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '$_passedRequirementCount of 8 checks passed · View requirements',
+                                  style: TextStyle(
+                                    color: _secondaryText,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            _showRequirements
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                            color: _secondaryText,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
+                  if (_showRequirements) ...[
+                    const SizedBox(height: 10),
+                    ...[
+                      _verificationRow(
+                        label: 'Profile Information',
+                        value: _profileComplete
+                            ? 'Student profile is complete'
+                            : 'Complete your profile first',
+                        passed: _profileComplete,
+                      ),
 
-                  _verificationRow(
-                    label: 'Department Eligibility',
-                    value: _departmentEligible
-                        ? '$savedDepartment is eligible'
-                        : 'Your department or program '
-                              'is not eligible',
-                    passed: _departmentEligible,
-                  ),
+                      _verificationRow(
+                        label: 'Department Eligibility',
+                        value: _departmentEligible
+                            ? '$savedDepartment is eligible'
+                            : 'Your department or program '
+                                  'is not eligible',
+                        passed: _departmentEligible,
+                      ),
 
-                  _verificationRow(
-                    label: 'Course Eligibility',
-                    value: _courseEligible
-                        ? '$savedCourse is allowed'
-                        : '${savedCourse.isEmpty ? 'No course selected' : savedCourse} '
-                              'is not allowed',
-                    passed: _courseEligible,
-                  ),
+                      _verificationRow(
+                        label: 'Course Eligibility',
+                        value: _courseEligible
+                            ? '$savedCourse is allowed'
+                            : '${savedCourse.isEmpty ? 'No course selected' : savedCourse} '
+                                  'is not allowed',
+                        passed: _courseEligible,
+                      ),
 
-                  _verificationRow(
-                    label: 'Year Level Eligibility',
-                    value: _yearEligible
-                        ? '$savedYear is allowed'
-                        : '${savedYear.isEmpty ? 'No year level selected' : savedYear} '
-                              'is not allowed',
-                    passed: _yearEligible,
-                  ),
+                      _verificationRow(
+                        label: 'Year Level Eligibility',
+                        value: _yearEligible
+                            ? '$savedYear is allowed'
+                            : '${savedYear.isEmpty ? 'No year level selected' : savedYear} '
+                                  'is not allowed',
+                        passed: _yearEligible,
+                      ),
 
-                  _verificationRow(
-                    label: 'Registration Availability',
-                    value: _hasAvailableSlot
-                        ? 'Slots are still available'
-                        : 'Registration is already full',
-                    passed: _hasAvailableSlot,
-                  ),
+                      _verificationRow(
+                        label: 'Registration Availability',
+                        value: _hasAvailableSlot
+                            ? 'Slots are still available'
+                            : 'Registration is already full',
+                        passed: _hasAvailableSlot,
+                      ),
 
-                  _verificationRow(
-                    label: 'Registration Status',
-                    value: registered
-                        ? 'Registration confirmed'
-                        : widget.event.registrationOpen
-                        ? 'Registration is open'
-                        : 'Registration is closed',
-                    passed: registered || widget.event.registrationOpen,
-                  ),
+                      _verificationRow(
+                        label: 'Registration Status',
+                        value: registered
+                            ? 'Registration confirmed'
+                            : widget.event.registrationOpen
+                            ? 'Registration is open'
+                            : 'Registration is closed',
+                        passed: registered || widget.event.registrationOpen,
+                      ),
 
-                  _verificationRow(
-                    label: 'Registration Deadline',
-                    value: _deadlinePassed
-                        ? 'Registration deadline '
-                              'has passed'
-                        : 'Within the registration period',
-                    passed: !_deadlinePassed,
-                  ),
+                      _verificationRow(
+                        label: 'Registration Deadline',
+                        value: _deadlinePassed
+                            ? 'Registration deadline '
+                                  'has passed'
+                            : 'Within the registration period',
+                        passed: !_deadlinePassed,
+                      ),
 
-                  _verificationRow(
-                    label: 'Block Eligibility',
-                    value: _blockEligible
-                        ? '$savedBlock is allowed'
-                        : 'Your block is not eligible '
-                              'for this event',
-                    passed: _blockEligible,
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  _verificationResult(
-                    registered: registered,
-                    verified: verified,
-                  ),
+                      _verificationRow(
+                        label: 'Block Eligibility',
+                        value: _blockEligible
+                            ? '$savedBlock is allowed'
+                            : 'Your block is not eligible '
+                                  'for this event',
+                        passed: _blockEligible,
+                      ),
+                    ],
+                    _verificationResult(
+                      registered: registered,
+                      verified: verified,
+                    ),
+                  ],
                 ],
               ),
             ),
-
-            const SizedBox(height: 24),
-
-            // ==========================================
-            // REGISTRATION ACTION
-            // ==========================================
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 280),
-              child: registered
-                  ? _registeredBanner()
-                  : SizedBox(
-                      key: const ValueKey('register'),
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton.icon(
-                        onPressed: _eligibleToRegister ? registerEvent : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: yellow,
-                          foregroundColor: navy,
-                          disabledBackgroundColor: _isDark
-                              ? const Color(0xFF354258)
-                              : const Color(0xFFE3E7EF),
-                          disabledForegroundColor: _isDark
-                              ? const Color(0xFFB7C5D8)
-                              : const Color(0xFF808D9E),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        icon: Icon(
-                          _eligibleToRegister
-                              ? Icons.how_to_reg_rounded
-                              : Icons.block_rounded,
-                        ),
-                        label: Text(
-                          _eligibleToRegister
-                              ? 'Confirm Registration'
-                              : 'Not Eligible to Register',
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                    ),
-            ),
-
+            const SizedBox(height: 18),
             // ==========================================
             // E-CERTIFICATE
             // ==========================================

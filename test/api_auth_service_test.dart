@@ -13,15 +13,18 @@ void main() {
   // TEST 1: SUCCESSFUL STUDENT API LOGIN
   // ====================================================
 
-  test('API login sends JSON and reads student data', () async {
+  test('API login sends School ID and reads student data', () async {
     final client = MockClient((request) async {
       expect(request.method, 'POST');
       expect(request.url, loginUri);
 
+      expect(request.headers['content-type'], contains('application/json'));
+
       final body = jsonDecode(request.body);
 
-      expect(body['email'], 'student@test.local');
+      expect(body['school_id'], '23-123456');
       expect(body['password'], 'test-password');
+      expect(body.containsKey('email'), false);
 
       return http.Response(
         jsonEncode({
@@ -34,6 +37,7 @@ void main() {
             'id': '123',
             'name': 'Demo Student',
             'email': 'student@test.local',
+            'school_id': '23-123456',
             'role': 'student',
           },
         }),
@@ -46,7 +50,7 @@ void main() {
     final service = ApiAuthService(client: client, loginUri: loginUri);
 
     final result = await service.login(
-      email: 'student@test.local',
+      schoolId: '23-123456',
       password: 'test-password',
     );
 
@@ -62,7 +66,12 @@ void main() {
 
   test('API login rejects incorrect credentials', () async {
     final client = MockClient((request) async {
-      return http.Response('{"message":"Invalid credentials"}', 401);
+      final body = jsonDecode(request.body);
+
+      expect(body['school_id'], '23-123456');
+      expect(body['password'], 'wrong-password');
+
+      return http.Response(jsonEncode({'message': 'Invalid credentials'}), 401);
     });
 
     addTearDown(client.close);
@@ -70,7 +79,7 @@ void main() {
     final service = ApiAuthService(client: client, loginUri: loginUri);
 
     await expectLater(
-      service.login(email: 'student@test.local', password: 'wrong-password'),
+      service.login(schoolId: '23-123456', password: 'wrong-password'),
       throwsA(isA<ApiAuthException>()),
     );
   });
@@ -101,6 +110,10 @@ void main() {
 
   test('API login rejects expired tokens', () async {
     final client = MockClient((request) async {
+      final body = jsonDecode(request.body);
+
+      expect(body['school_id'], '23-123456');
+
       return http.Response(
         jsonEncode({
           'access_token': 'expired-test-token',
@@ -112,6 +125,7 @@ void main() {
             'id': '124',
             'name': 'TMC Event Officer',
             'email': 'scanner@test.local',
+            'school_id': '23-123456',
             'role': 'scanner',
           },
         }),
@@ -124,7 +138,7 @@ void main() {
     final service = ApiAuthService(client: client, loginUri: loginUri);
 
     await expectLater(
-      service.login(email: 'scanner@test.local', password: 'test-password'),
+      service.login(schoolId: '23-123456', password: 'test-password'),
       throwsA(isA<ApiAuthException>()),
     );
   });

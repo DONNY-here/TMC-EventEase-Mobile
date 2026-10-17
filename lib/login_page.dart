@@ -99,7 +99,7 @@ class _LoginPageState extends State<LoginPage> {
           // value until ApiAuthService is updated to
           // submit the "school_id" JSON field.
           final session = await apiService.login(
-            email: schoolId,
+            schoolId: schoolId,
             password: password,
           );
 
@@ -134,42 +134,49 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       // ================================================
-      // DEMO AUTHENTICATION
+      // DEMO AUTHENTICATION - SCHOOL ID
       // ================================================
 
-      // The existing demo service is email-based.
-      // It must be updated before School ID demo
-      // accounts can authenticate.
-      final user = await authService.login(email: schoolId, password: password);
+      final user = await authService.loginWithSchoolId(
+        schoolId: schoolId,
+        password: password,
+      );
 
       if (!mounted) return;
 
-      if (user != null) {
-        if (!user.isStudent && !user.isScanner) {
-          authService.logout();
-
-          showMessage(context, 'This account role is not supported.');
-          return;
-        }
-
-        // Existing demo-account recognition.
-        final shouldRemember =
-            user.isStudent &&
-            user.email.toLowerCase() == 'student@test.local' &&
-            rememberDemoStudent;
-
-        await demoSessionStorage.setRememberStudent(shouldRemember);
+      if (user != null && user.isStudent) {
+        final profile = await authService.loadStudentProfile();
 
         if (!mounted) return;
 
-        savedUserRole = user.role;
+        if (profile != null) {
+          savedName = profile['name'] ?? '';
+          savedEmail = profile['email'] ?? '';
+          savedStudentId = profile['school_id'] ?? '';
+          savedDepartment = profile['department'] ?? '';
+          savedCourse = profile['course'] ?? '';
+          savedYear = profile['year'] ?? '';
+          savedBlock = profile['block'] ?? '';
+        }
 
-        demoScannerName = user.isScanner ? user.name : 'TMC Event Officer';
+        savedPassword = '';
+        savedUserRole = 'student';
+        demoScannerName = 'TMC Event Officer';
+
+        // Remembering locally registered accounts will be
+        // implemented separately from the built-in demo session.
+        await demoSessionStorage.setRememberStudent(
+          rememberDemoStudent,
+        );
+
+        if (!mounted) return;
 
         Navigator.pushReplacement(context, animatedRoute(const MainPage()));
 
         return;
       }
+
+      showMessage(context, 'Incorrect School ID or password.');
 
       // ================================================
       // INVALID LOGIN
@@ -460,7 +467,7 @@ class _LoginPageState extends State<LoginPage> {
                                       });
                                     },
                               title: const Text(
-                                'Remember student demo login',
+                                'Keep me signed in',
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: textDark,

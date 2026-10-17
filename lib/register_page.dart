@@ -106,16 +106,17 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  void registerUser() {
-    if (!(_stepForms[2].currentState?.validate() ?? false)) return;
+  Future<void> registerUser() async {
+    if (!(_stepForms[2].currentState?.validate() ?? false)) {
+      return;
+    }
+
     setState(() => triedTerms = true);
+
     if (!acceptedTerms) return;
 
     if (ApiConfig.useRealApi) {
-      showMessage(
-        context,
-        'Registration through Laravel is not configured yet. Switch to Demo Mode to test local registration.',
-      );
+      showMessage(context, 'Laravel registration is not configured yet.');
       return;
     }
 
@@ -125,23 +126,50 @@ class _RegisterPageState extends State<RegisterPage> {
     final password = passwordController.text;
     final block = blockController.text.trim();
 
-    // Demo registration supports a single local student account.
-    if (savedEmail.isNotEmpty &&
-        (savedEmail.toLowerCase() != email.toLowerCase() ||
-            savedStudentId != studentId)) {
-      clearStudentActivityData();
-    }
-    savedName = name;
-    savedEmail = email;
-    savedStudentId = studentId;
-    savedDepartment = selectedDepartment;
-    savedCourse = selectedCourse;
-    savedYear = selectedYear;
-    savedBlock = block;
-    savedPassword = password; // Existing demo-only implementation.
+    try {
+      await authService.registerStudent(
+        name: name,
+        email: email,
+        schoolId: studentId,
+        department: selectedDepartment,
+        course: selectedCourse,
+        year: selectedYear,
+        block: block,
+        password: password,
+      );
 
-    showMessage(context, 'Demo student account created! Please log in.');
-    Navigator.pop(context);
+      if (!mounted) return;
+
+      // Clear activity data when switching accounts.
+      if (savedStudentId != studentId ||
+          savedEmail.toLowerCase() != email.toLowerCase()) {
+        clearStudentActivityData();
+      }
+
+      savedName = name;
+      savedEmail = email;
+      savedStudentId = studentId;
+      savedDepartment = selectedDepartment;
+      savedCourse = selectedCourse;
+      savedYear = selectedYear;
+      savedBlock = block;
+
+      // Do not keep a plaintext password in global state.
+      savedPassword = '';
+
+      showMessage(context, 'Account created successfully! Please sign in.');
+
+      Navigator.pop(context);
+    } catch (error) {
+      if (!mounted) return;
+
+      showMessage(
+        context,
+        'Unable to save your demo account. Please try again.',
+      );
+
+      debugPrint('Demo registration failed: ${error.runtimeType}');
+    }
   }
 
   Widget field({

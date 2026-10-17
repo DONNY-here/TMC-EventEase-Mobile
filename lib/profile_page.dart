@@ -144,7 +144,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     // Preserve the existing authentication cleanup,
     // logout handling and navigation.
-    logoutEventEaseUser(context);
+    await logoutEventEaseUser(context);
   }
 
   // ====================================================

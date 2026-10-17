@@ -6,7 +6,7 @@
 
 class ApiConfig {
   // Release builds must never use demo authentication.
-  static const bool useRealApi = true;
+  static const bool useRealApi = false;
 
   // Actual server address will be supplied at launch.
   static const String baseUrl = String.fromEnvironment(
