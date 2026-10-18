@@ -45,6 +45,26 @@ const List<String> blockOptions = [
   'Block 11',
 ];
 
+// Normalize block input for Student Registration, Edit Profile, and Events.
+// Accepts 1, 01, Block 1, block 1, and integer values from 1 through 11.
+// Returns null when the block is not valid.
+String? normalizeTmcBlock(Object? input) {
+  final value = (input ?? '').toString().trim();
+  final match = RegExp(
+    r'^(?:block\s*)?(\d{1,2})$',
+    caseSensitive: false,
+  ).firstMatch(value);
+
+  if (match == null) return null;
+
+  final number = int.tryParse(match.group(1)!);
+  if (number == null || number < 1 || number > blockOptions.length) {
+    return null;
+  }
+
+  return blockOptions[number - 1];
+}
+
 bool isValidEmail(String email) {
   final value = email.trim();
   return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value);
@@ -209,7 +229,7 @@ const List<Event> eventList = [
     time: '9:00 AM - 12:00 PM',
     venue: 'TMC Auditorium',
     description:
-        'A technology seminar where students can learn '
+    'A technology seminar where students can learn '
         'about the latest trends in information technology.',
 
     scope: 'School-Wide',
@@ -247,7 +267,7 @@ const List<Event> eventList = [
     time: '8:00 AM - 5:00 PM',
     venue: 'TMC Covered Court',
     description:
-        'An esports competition for students from different departments.',
+    'An esports competition for students from different departments.',
 
     scope: 'School-Wide',
     department: 'All Departments',
@@ -289,7 +309,7 @@ const List<Event> eventList = [
     time: '8:00 AM - 12:00 PM',
     venue: 'TMC Computer Laboratory',
     description:
-        'A programming competition exclusively for '
+    'A programming competition exclusively for '
         'College of Computer Studies students.',
 
     scope: 'Department-Specific',
@@ -336,7 +356,7 @@ final List<ScanHistory> scanHistory = [];
 // ======================================================
 
 final ValueNotifier<Set<String>> readNotificationIds =
-    ValueNotifier<Set<String>>(<String>{});
+ValueNotifier<Set<String>>(<String>{});
 
 const List<String> generalNotificationIds = [
   'announcement_techtalk',
@@ -406,4 +426,5 @@ void clearStudentActivityData() {
 
   // Reset read notification records for the next student.
   readNotificationIds.value = <String>{};
+  scanHistory.clear();
 }

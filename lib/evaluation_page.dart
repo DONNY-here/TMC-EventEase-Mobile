@@ -44,6 +44,19 @@ class _EvaluationPageState extends State<EvaluationPage> {
 
   Color get _accent => _isDark ? yellow : navy;
 
+  // Evaluation is permitted only for a registered student whose
+  // attendance was recorded in this local demo session.
+  bool get _canEvaluate {
+    final key = eventKey(widget.event);
+    final isRegistered = registeredEvents.any(
+          (registered) => eventKey(registered) == key,
+    );
+
+    return !ApiConfig.useRealApi &&
+        isRegistered &&
+        attendanceStatus[key] == 'Present';
+  }
+
   // ====================================================
   // LOAD PREVIOUS EVALUATION
   // ====================================================
@@ -64,17 +77,27 @@ class _EvaluationPageState extends State<EvaluationPage> {
   // ====================================================
 
   void submitEvaluation() {
-    if (rating == 0) {
-      showMessage(context, 'Please select a rating.');
+    // Check again at submission time, in case attendance changed.
+    if (!_canEvaluate) {
+      showMessage(
+        context,
+        'Registration and recorded attendance are required '
+            'before submitting an evaluation.',
+      );
+      return;
+    }
+
+    if (rating < 1 || rating > 5) {
+      showMessage(context, 'Please select a rating from 1 to 5 stars.');
       return;
     }
 
     final key = eventKey(widget.event);
-
     eventRatings[key] = rating;
     eventComments[key] = commentController.text.trim();
 
-    Navigator.pop(context);
+    refreshNotifications();
+    Navigator.pop(context, true);
   }
 
   @override
@@ -145,7 +168,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
 
                 Text(
                   '${widget.event.date} • '
-                  '${widget.event.venue}',
+                      '${widget.event.venue}',
                   style: TextStyle(
                     color: _secondaryText,
                     fontSize: 12,
@@ -329,11 +352,69 @@ class _EvaluationPageState extends State<EvaluationPage> {
   }
 
   // ====================================================
+  // LOCKED SCREEN WHEN EVALUATION IS NOT ALLOWED
+  // ====================================================
+
+  Widget _lockedScreen() {
+    return Scaffold(
+      backgroundColor: _pageBackground,
+      appBar: AppBar(
+        title: const Text('Event Evaluation'),
+        backgroundColor: navy,
+        foregroundColor: Colors.white,
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(maxWidth: 440),
+            padding: const EdgeInsets.all(24),
+            decoration: _cardDecoration(radius: 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_outline_rounded, size: 54, color: _accent),
+                const SizedBox(height: 14),
+                Text(
+                  'Evaluation Locked',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _primaryText,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  ApiConfig.useRealApi
+                      ? 'Online evaluation is not connected to Laravel yet.'
+                      : 'Register for this event and have your QR attendance '
+                      'recorded as Present before completing the evaluation.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: _secondaryText, height: 1.45),
+                ),
+                const SizedBox(height: 22),
+                FilledButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  label: const Text('Go Back'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ====================================================
   // MAIN EVALUATION PAGE
   // ====================================================
 
   @override
   Widget build(BuildContext context) {
+    if (!_canEvaluate) return _lockedScreen();
     return Scaffold(
       backgroundColor: _pageBackground,
 

@@ -66,8 +66,15 @@ class StudentQrPassPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final key = eventKey(event);
-    final registered = registeredEvents.contains(event);
-    final token = qrTokens[key];
+
+    // Demo credentials are available only for a locally registered event.
+    // Never generate or display demo credentials in Real API Mode.
+    final registered = !ApiConfig.useRealApi &&
+        registeredEvents.any((item) => eventKey(item) == key);
+    final token = registered ? qrTokens[key] : null;
+    final validToken = token != null &&
+        RegExp(r'^[A-Za-z0-9]{40}$').hasMatch(token);
+    final qrData = validToken ? '$studentQrPrefix$token' : '';
 
     // ==================================================
     // LIGHT AND DARK MODE COLORS
@@ -108,7 +115,7 @@ class StudentQrPassPage extends StatelessWidget {
     // ==================================================
 
     // Never create a QR token merely by opening this page.
-    if (!registered || token == null) {
+    if (qrData.isEmpty) {
       return Scaffold(
         backgroundColor: pageBackground,
 
@@ -152,7 +159,7 @@ class StudentQrPassPage extends StatelessWidget {
 
                   Text(
                     'No active QR pass is available '
-                    'for this event.',
+                        'for this event.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: secondaryText,
@@ -168,8 +175,7 @@ class StudentQrPassPage extends StatelessWidget {
       );
     }
 
-    // Preserve the existing scanner-compatible QR format.
-    final qrData = '$studentQrPrefix$token';
+    // Use only the validated scanner-compatible demo QR data.
 
     // ==================================================
     // ACTIVE STUDENT QR PASS
@@ -251,7 +257,19 @@ class StudentQrPassPage extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 10),
+
+                    Text(
+                      'DEMO PASS · NOT OFFICIAL ATTENDANCE',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: secondaryText,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+
+                    const SizedBox(height: 18),
 
                     // ==================================
                     // SCANNABLE QR CODE
@@ -289,7 +307,7 @@ class StudentQrPassPage extends StatelessWidget {
                     // ==================================
                     Text(
                       'Present this QR code to '
-                      'authorized event personnel.',
+                          'authorized event personnel.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: secondaryText,

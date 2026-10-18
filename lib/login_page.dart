@@ -177,15 +177,6 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       showMessage(context, 'Incorrect School ID or password.');
-
-      // ================================================
-      // INVALID LOGIN
-      // ================================================
-
-      // Local School ID login requires a saved School ID
-      // from the registration system. It is not enabled
-      // until that storage is implemented.
-      showMessage(context, 'Incorrect School ID or password.');
     } on ApiAuthException catch (error) {
       if (ApiConfig.useRealApi) {
         try {
@@ -428,15 +419,15 @@ class _LoginPageState extends State<LoginPage> {
                               onPressed: isLoggingIn
                                   ? null
                                   : () {
-                                      Navigator.push(
-                                        context,
-                                        animatedRoute(
-                                          const ForgotPasswordPage(
-                                            initialEmail: '',
-                                          ),
-                                        ),
-                                      );
-                                    },
+                                Navigator.push(
+                                  context,
+                                  animatedRoute(
+                                    const ForgotPasswordPage(
+                                      initialEmail: '',
+                                    ),
+                                  ),
+                                );
+                              },
                               child: const Text(
                                 'Forgot Password?',
                                 style: TextStyle(
@@ -462,10 +453,10 @@ class _LoginPageState extends State<LoginPage> {
                               onChanged: isLoggingIn
                                   ? null
                                   : (value) {
-                                      setState(() {
-                                        rememberDemoStudent = value ?? false;
-                                      });
-                                    },
+                                setState(() {
+                                  rememberDemoStudent = value ?? false;
+                                });
+                              },
                               title: const Text(
                                 'Keep me signed in',
                                 style: TextStyle(
@@ -486,13 +477,13 @@ class _LoginPageState extends State<LoginPage> {
                             onPressed: isLoggingIn ? null : loginUser,
                             icon: isLoggingIn
                                 ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: navy,
-                                    ),
-                                  )
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: navy,
+                              ),
+                            )
                                 : const Icon(Icons.login_rounded),
                             label: Text(
                               isLoggingIn ? 'Signing In...' : 'Sign In',
@@ -502,23 +493,26 @@ class _LoginPageState extends State<LoginPage> {
                           // ==================================
                           // REGISTRATION
                           // ==================================
-                          if (!ApiConfig.useRealApi) ...[
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: isLoggingIn
-                                  ? null
-                                  : () {
-                                      Navigator.push(
-                                        context,
-                                        animatedRoute(const RegisterPage()),
-                                      );
-                                    },
-                              child: const Text(
-                                "Don't have an account? Register",
-                                style: TextStyle(fontWeight: FontWeight.w700),
+                          // Display the Register action in both modes.
+                          // Laravel registration uses /api/auth/register.
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: isLoggingIn
+                                ? null
+                                : () {
+                              Navigator.push(
+                                context,
+                                animatedRoute(const RegisterPage()),
+                              );
+                            },
+                            child: const Text(
+                              "Don't have an account? Register",
+                              style: TextStyle(
+                                color: navy,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     ),

@@ -17,8 +17,12 @@ class EventDetailsPage extends StatefulWidget {
 class _EventDetailsPageState extends State<EventDetailsPage> {
   bool _showRequirements = false;
 
+  // Shown only for 5 seconds after a successful demo registration.
+  // Registration itself stays in registeredEvents.
+  bool _showRegistrationConfirmation = false;
+
   bool get _isRegistered => registeredEvents.any(
-    (event) => eventKey(event) == eventKey(widget.event),
+        (event) => eventKey(event) == eventKey(widget.event),
   );
 
   int get _passedRequirementCount => [
@@ -65,10 +69,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   bool get _profileComplete =>
       savedName.trim().isNotEmpty &&
-      savedDepartment.trim().isNotEmpty &&
-      savedCourse.trim().isNotEmpty &&
-      savedYear.trim().isNotEmpty &&
-      savedBlock.trim().isNotEmpty;
+          savedDepartment.trim().isNotEmpty &&
+          savedCourse.trim().isNotEmpty &&
+          savedYear.trim().isNotEmpty &&
+          savedBlock.trim().isNotEmpty;
 
   bool get _courseEligible => widget.event.allowedCourses.contains(savedCourse);
 
@@ -98,46 +102,34 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   bool get _yearEligible => widget.event.allowedYears.contains(savedYear);
 
-  bool get _blockEligible => widget.event.allowedBlocks.contains(savedBlock);
-
-
-  bool get _hasAvailableSlot {
-    // A student who already registered keeps their status.
-    if (_isRegistered) return true;
-
-    // Only allow new registrations if slots remain.
-    return _availableSlots > 0;
+  bool get _blockEligible {
+    final block = normalizeTmcBlock(savedBlock);
+    return block != null && widget.event.allowedBlocks.contains(block);
   }
 
+  bool get _hasAvailableSlot {
+    final registered = _isRegistered;
+
+    final total = widget.event.currentParticipants + (registered ? 1 : 0);
+
+    return total < widget.event.capacity || registered;
+  }
 
   bool get _eligibleToRegister =>
       _profileComplete &&
-      _departmentEligible &&
-      _courseEligible &&
-      _yearEligible &&
-      _blockEligible &&
-      _hasAvailableSlot &&
-      !_deadlinePassed &&
-      widget.event.registrationOpen;
-
+          _departmentEligible &&
+          _courseEligible &&
+          _yearEligible &&
+          _blockEligible &&
+          _hasAvailableSlot &&
+          !_deadlinePassed &&
+          widget.event.registrationOpen;
 
   int get _displayParticipantCount {
-    final capacity = max(0, widget.event.capacity);
+    final registered = _isRegistered;
 
-    // Original participant count from the Event model.
-    final baseCount = widget.event.currentParticipants
-        .clamp(0, capacity)
-        .toInt();
-
-    // Only add one locally registered student in Demo Mode.
-    // In Real API Mode, the server should supply the count.
-    final demoAddition =
-    !ApiConfig.useRealApi && _isRegistered ? 1 : 0;
-
-    // Never display more participants than the capacity.
-    return min(capacity, baseCount + demoAddition);
+    return widget.event.currentParticipants + (registered ? 1 : 0);
   }
-
 
   int get _availableSlots =>
       max(0, widget.event.capacity - _displayParticipantCount);
@@ -149,89 +141,64 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   bool get _certificateEligible {
     final key = eventKey(widget.event);
 
-    return _isRegistered &&
+    final rating = eventRatings[key] ?? 0;
+
+    // Certificates here are local previews, not backend-issued records.
+    return !ApiConfig.useRealApi &&
+        _isRegistered &&
         attendanceStatus[key] == 'Present' &&
-        eventRatings.containsKey(key);
+        rating >= 1 &&
+        rating <= 5;
   }
 
   // ====================================================
   // REGISTRATION DEADLINE
   // ====================================================
 
-
   bool get _deadlinePassed {
-    final raw = widget.event.registrationDeadline.trim();
+    final dateText = widget.event.registrationDeadline
+        .replaceAll(',', '')
+        .trim();
 
-    if (raw.isEmpty) return true;
+    final parts = dateText.split(RegExp(r'\s+'));
 
-    DateTime? deadline;
+    const months = {
+      'January': 1,
+      'February': 2,
+      'March': 3,
+      'April': 4,
+      'May': 5,
+      'June': 6,
+      'July': 7,
+      'August': 8,
+      'September': 9,
+      'October': 10,
+      'November': 11,
+      'December': 12,
+    };
 
-    // Support ISO format: 2026-10-19
-    final isoMatch = RegExp(
-      r'^(\d{4})-(\d{2})-(\d{2})$',
-    ).firstMatch(raw);
+    if (parts.length != 3) return true;
 
-    if (isoMatch != null) {
-      final year = int.parse(isoMatch.group(1)!);
-      final month = int.parse(isoMatch.group(2)!);
-      final day = int.parse(isoMatch.group(3)!);
+    final month = months[parts[0]];
+    final day = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
 
-      deadline = DateTime(year, month, day);
-
-      if (deadline.year != year ||
-          deadline.month != month ||
-          deadline.day != day) {
-        return true;
-      }
-    } else {
-      // Support readable format: October 19, 2026
-      final cleaned = raw.replaceAll(',', '');
-      final parts = cleaned.split(RegExp(r'\s+'));
-
-      const months = {
-        'january': 1,
-        'february': 2,
-        'march': 3,
-        'april': 4,
-        'may': 5,
-        'june': 6,
-        'july': 7,
-        'august': 8,
-        'september': 9,
-        'october': 10,
-        'november': 11,
-        'december': 12,
-      };
-
-      if (parts.length != 3) return true;
-
-      final month = months[parts[0].toLowerCase()];
-      final day = int.tryParse(parts[1]);
-      final year = int.tryParse(parts[2]);
-
-      if (month == null || day == null || year == null) {
-        return true;
-      }
-
-      deadline = DateTime(year, month, day);
-
-      if (deadline.year != year ||
-          deadline.month != month ||
-          deadline.day != day) {
-        return true;
-      }
+    if (month == null || day == null || year == null) {
+      return true;
     }
 
-    // Registration remains open through the deadline date.
-    final closingTime = DateTime(
-      deadline.year,
-      deadline.month,
-      deadline.day + 1,
-    );
+    final deadline = DateTime(year, month, day);
+
+    if (deadline.year != year ||
+        deadline.month != month ||
+        deadline.day != day) {
+      return true;
+    }
+
+    final closingTime = DateTime(year, month, day + 1);
 
     return !DateTime.now().isBefore(closingTime);
   }
-
 
   // ====================================================
   // OPEN EVALUATION
@@ -253,10 +220,20 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   // ====================================================
 
   void _openCertificate() {
+    // Recheck requirements even if called outside the visible button.
+    if (!_certificateEligible) {
+      showMessage(
+        context,
+        'Complete demo attendance and event evaluation first.',
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ECertificateScreen(
+        builder: (_) => ECertificatePage(
+          event: widget.event,
           studentName: savedName,
           course: savedCourse,
           yearLevel: savedYear,
@@ -272,10 +249,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   // ====================================================
 
   Widget _confirmationLine(
-    BuildContext dialogContext,
-    String label,
-    String value,
-  ) {
+      BuildContext dialogContext,
+      String label,
+      String value,
+      ) {
     final dark = Theme.of(dialogContext).brightness == Brightness.dark;
 
     final labelColor = dark ? const Color(0xFFB9C8DA) : const Color(0xFF68778B);
@@ -402,7 +379,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
               Text(
                 'By continuing, you confirm that you '
-                'want to participate in this event.',
+                    'want to participate in this event.',
                 style: TextStyle(color: secondary, fontSize: 13, height: 1.5),
               ),
             ],
@@ -474,7 +451,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       showMessage(
         context,
         'Please complete your profile before registering '
-        'for an event.',
+            'for an event.',
       );
       return;
     }
@@ -483,7 +460,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       showMessage(
         context,
         'Your department or course does not meet '
-        'the requirements for this event.',
+            'the requirements for this event.',
       );
       return;
     }
@@ -492,7 +469,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       showMessage(
         context,
         'Your course, year level, or block is not '
-        'eligible for this event.',
+            'eligible for this event.',
       );
       return;
     }
@@ -511,7 +488,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       showMessage(
         context,
         'The registration deadline for this event '
-        'has passed.',
+            'has passed.',
       );
       return;
     }
@@ -531,7 +508,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       showMessage(
         context,
         'Registration requirements are no longer '
-        'satisfied.',
+            'satisfied.',
       );
       return;
     }
@@ -545,6 +522,15 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
       // Preserve QR-token creation.
       qrTokens[key] = createLocalQrToken();
+      _showRegistrationConfirmation = true;
+    });
+
+    // Only hide the confirmation UI, never the actual registration.
+    Future<void>.delayed(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      setState(() {
+        _showRegistrationConfirmation = false;
+      });
     });
 
     showMessage(context, 'Registration confirmed successfully!');
@@ -839,37 +825,55 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     return Container(
       key: const ValueKey('registered'),
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: successColor.withValues(alpha: 0.25)),
       ),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check_circle_rounded, color: successColor),
-
-              const SizedBox(width: 8),
-
-              Text(
-                'Registration Confirmed',
-                style: TextStyle(
-                  color: successColor,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: successColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(
+              Icons.check_circle_rounded,
+              color: successColor,
+              size: 28,
+            ),
           ),
-
-          const SizedBox(height: 5),
-
-          Text(
-            '$savedName • $savedCourse • $savedYear',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: _secondaryText, fontSize: 11.5),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Registration Confirmed',
+                  style: TextStyle(
+                    color: successColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$savedName • $savedCourse • $savedYear',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: _secondaryText,
+                    fontSize: 11.5,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -883,7 +887,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   Widget _certificateSection() {
     final attended = attendanceStatus[eventKey(widget.event)] == 'Present';
 
-    final evaluated = eventRatings.containsKey(eventKey(widget.event));
+    final evaluated = (eventRatings[eventKey(widget.event)] ?? 0) >= 1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -899,10 +903,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             children: [
               Text(
                 _certificateEligible
-                    ? 'Your certificate is ready to view.'
+                    ? 'Your demo certificate preview is ready to view.'
                     : 'Your certificate will unlock when '
-                          'your attendance is marked Present '
-                          'and your event evaluation is completed.',
+                    'your attendance is marked Present '
+                    'and your event evaluation is completed.',
                 style: TextStyle(
                   color: _secondaryText,
                   height: 1.4,
@@ -965,7 +969,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     final verified = registered || _eligibleToRegister;
 
     final courseText =
-        widget.event.allowedCourses.length == courseOptions.length
+    widget.event.allowedCourses.length == courseOptions.length
         ? 'All Courses'
         : widget.event.allowedCourses.join(', ');
 
@@ -986,7 +990,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         ),
       ),
 
-      bottomNavigationBar: SafeArea(
+      // Remove the entire bottom bar after the 5-second confirmation.
+      // Existing registrations still show in the event details status.
+      bottomNavigationBar: (!_isRegistered || _showRegistrationConfirmation)
+          ? SafeArea(
         top: false,
         child: Container(
           padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
@@ -997,32 +1004,29 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
           child: _isRegistered
               ? _registeredBanner()
               : SizedBox(
-                  height: 54,
-                  child: ElevatedButton.icon(
-                    onPressed: _eligibleToRegister ? registerEvent : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: yellow,
-                      foregroundColor: navy,
-                      disabledBackgroundColor: _cardBorder,
-                      disabledForegroundColor: _secondaryText,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    icon: Icon(
-                      _eligibleToRegister
-                          ? Icons.how_to_reg_rounded
-                          : Icons.block_rounded,
-                    ),
-                    label: Text(
-                      _eligibleToRegister
-                          ? 'Confirm Registration'
-                          : 'Not Eligible to Register',
-                    ),
-                  ),
+            height: 54,
+            child: ElevatedButton.icon(
+              onPressed: _eligibleToRegister ? registerEvent : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: yellow,
+                foregroundColor: navy,
+                disabledBackgroundColor: _cardBorder,
+                disabledForegroundColor: _secondaryText,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
+              ),
+              icon: Icon(_eligibleToRegister
+                  ? Icons.how_to_reg_rounded
+                  : Icons.block_rounded),
+              label: Text(_eligibleToRegister
+                  ? 'Confirm Registration'
+                  : 'Not Eligible to Register'),
+            ),
+          ),
         ),
-      ),
+      )
+          : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
         child: Column(
@@ -1140,18 +1144,14 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                 ),
                 Chip(
                   avatar: Icon(
-                    _isRegistered
-                        ? Icons.check_circle_outline
-                        : Icons.info_outline,
+                    _isRegistered ? Icons.check_circle_outline : Icons.info_outline,
                     size: 16,
                   ),
-                  label: Text(
-                    _isRegistered
-                        ? 'Registered (Demo)'
-                        : _deadlinePassed || !widget.event.registrationOpen
-                        ? 'Registration closed'
-                        : 'Registration open (Demo)',
-                  ),
+                  label: Text(_isRegistered
+                      ? 'Registered (Demo)'
+                      : _deadlinePassed || !widget.event.registrationOpen
+                      ? 'Registration closed'
+                      : 'Registration open (Demo)'),
                   visualDensity: VisualDensity.compact,
                 ),
               ],
@@ -1262,12 +1262,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   _participantInfoRow(
                     icon: Icons.people_alt_outlined,
                     label: 'Available Slots',
-
-                    value: _availableSlots == 0
-                        ? 'FULL - 0 slots remaining'
-                        : '$_availableSlots available out of '
+                    value:
+                    '$_availableSlots available out of '
                         '${widget.event.capacity} slots',
-
                   ),
 
                   const SizedBox(height: 10),
@@ -1275,7 +1272,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                     value: widget.event.capacity <= 0
                         ? 0
                         : (_displayParticipantCount / widget.event.capacity)
-                              .clamp(0.0, 1.0),
+                        .clamp(0.0, 1.0),
                     minHeight: 6,
                     borderRadius: BorderRadius.circular(6),
                     backgroundColor: _cardBorder,
@@ -1311,8 +1308,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                 children: [
                   InkWell(
                     borderRadius: BorderRadius.circular(14),
-                    onTap: () =>
-                        setState(() => _showRequirements = !_showRequirements),
+                    onTap: () => setState(() => _showRequirements = !_showRequirements),
                     child: Padding(
                       padding: const EdgeInsets.all(10),
                       child: Row(
@@ -1380,7 +1376,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         value: _departmentEligible
                             ? '$savedDepartment is eligible'
                             : 'Your department or program '
-                                  'is not eligible',
+                            'is not eligible',
                         passed: _departmentEligible,
                       ),
 
@@ -1389,7 +1385,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         value: _courseEligible
                             ? '$savedCourse is allowed'
                             : '${savedCourse.isEmpty ? 'No course selected' : savedCourse} '
-                                  'is not allowed',
+                            'is not allowed',
                         passed: _courseEligible,
                       ),
 
@@ -1398,7 +1394,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         value: _yearEligible
                             ? '$savedYear is allowed'
                             : '${savedYear.isEmpty ? 'No year level selected' : savedYear} '
-                                  'is not allowed',
+                            'is not allowed',
                         passed: _yearEligible,
                       ),
 
@@ -1424,7 +1420,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         label: 'Registration Deadline',
                         value: _deadlinePassed
                             ? 'Registration deadline '
-                                  'has passed'
+                            'has passed'
                             : 'Within the registration period',
                         passed: !_deadlinePassed,
                       ),
@@ -1434,9 +1430,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         value: _blockEligible
                             ? '$savedBlock is allowed'
                             : 'Your block is not eligible '
-                                  'for this event',
+                            'for this event',
                         passed: _blockEligible,
                       ),
+
                     ],
                     _verificationResult(
                       registered: registered,
@@ -1462,7 +1459,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               const SizedBox(height: 10),
               Text(
                 'Your profile must meet the event '
-                'requirements before you can register.',
+                    'requirements before you can register.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: _secondaryText,

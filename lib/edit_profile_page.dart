@@ -1,10 +1,5 @@
 part of 'main.dart';
 
-// ======================================================
-// TMC EVENTEASE - EDIT PROFILE PAGE
-// FIXED SPACING AND LIGHT / DARK MODE
-// ======================================================
-
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
 
@@ -19,7 +14,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String selectedDepartment = 'College of Computer Studies';
   String selectedCourse = 'BSIT';
   String selectedYear = '1st Year';
-  String selectedBlock = '';
+  // User enters only the numeric block, e.g. 1 or 11.
+  final TextEditingController blockController = TextEditingController();
 
   final Map<String, List<String>> departmentCourses = {
     'College of Computer Studies': ['BSIT'],
@@ -32,40 +28,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
     ],
   };
 
-  // ====================================================
-  // LIGHT AND DARK MODE COLORS
-  // ====================================================
-
-  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
-
-  Color get _pageBackground => Theme.of(context).scaffoldBackgroundColor;
-
-  Color get _cardBackground => _isDark ? const Color(0xFF19283D) : Colors.white;
-
-  Color get _inputBackground =>
-      _isDark ? const Color(0xFF25364D) : const Color(0xFFF6F8FC);
-
-  Color get _primaryText => Theme.of(context).colorScheme.onSurface;
-
-  Color get _secondaryText => Theme.of(context).colorScheme.onSurfaceVariant;
-
-  Color get _borderColor =>
-      _isDark ? const Color(0xFF40546D) : const Color(0xFFDDE5F0);
-
-  Color get _iconColor => _isDark ? const Color(0xFFAED4FF) : navy;
-
-  Color get _focusColor => _isDark ? yellow : navy;
-
-  // ====================================================
-  // INITIALIZE PROFILE INFORMATION
-  // ====================================================
-
   @override
   void initState() {
     super.initState();
 
     nameController = TextEditingController(text: savedName);
-
     emailController = TextEditingController(text: savedEmail);
 
     if (departmentCourses.containsKey(savedDepartment)) {
@@ -84,17 +51,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
       selectedYear = savedYear;
     }
 
-    selectedBlock = blockOptions.contains(savedBlock) ? savedBlock : '';
+    // Convert previously saved '1' or 'Block 1' into display value '1'.
+    final normalizedBlock = normalizeTmcBlock(savedBlock);
+    blockController.text = normalizedBlock == null
+        ? ''
+        : normalizedBlock.substring('Block '.length);
   }
-
-  // ====================================================
-  // SAVE PROFILE CHANGES
-  // EXISTING VALIDATION AND SAVE LOGIC PRESERVED
-  // ====================================================
 
   void saveChanges() {
     final name = nameController.text.trim();
     final email = emailController.text.trim();
+    final normalizedBlock = normalizeTmcBlock(blockController.text);
 
     if (name.isEmpty || email.isEmpty) {
       showMessage(context, 'Please complete all fields.');
@@ -106,26 +73,27 @@ class _EditProfilePageState extends State<EditProfilePage> {
       return;
     }
 
-    if (selectedBlock.isEmpty) {
-      showMessage(context, 'Please select your block.');
+    if (normalizedBlock == null) {
+      showMessage(context, 'Please enter a valid block number from 1 to 11.');
       return;
     }
 
+    // Validate the department and course combination.
     if (!(departmentCourses[selectedDepartment]?.contains(selectedCourse) ??
         false)) {
       showMessage(context, 'Please select a valid course.');
       return;
     }
 
+    // Save all changes together.
     savedName = name;
     savedEmail = email;
     savedDepartment = selectedDepartment;
     savedCourse = selectedCourse;
     savedYear = selectedYear;
-    savedBlock = selectedBlock;
+    savedBlock = normalizedBlock;
 
     showMessage(context, 'Profile updated successfully!');
-
     Navigator.pop(context);
   }
 
@@ -133,459 +101,210 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void dispose() {
     nameController.dispose();
     emailController.dispose();
+    blockController.dispose();
     super.dispose();
   }
-
-  // ====================================================
-  // REUSABLE FIELD LABEL
-  // LABELS ARE PLACED ABOVE INPUTS
-  // ====================================================
-
-  Widget _fieldLabel(String label) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 9),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: _primaryText,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ====================================================
-  // REUSABLE INPUT DECORATION
-  // ====================================================
-
-  InputDecoration _inputDecoration({
-    required IconData icon,
-    required String hint,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: _secondaryText, fontSize: 14),
-
-      prefixIcon: Icon(icon, color: _iconColor, size: 23),
-
-      filled: true,
-      fillColor: _inputBackground,
-
-      isDense: true,
-
-      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
-
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: _borderColor, width: 1),
-      ),
-
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: _focusColor, width: 1.6),
-      ),
-
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Colors.red),
-      ),
-
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Colors.red, width: 1.6),
-      ),
-    );
-  }
-
-  // ====================================================
-  // MAIN PAGE
-  // ====================================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _pageBackground,
-
       appBar: AppBar(title: const Text('Edit Profile')),
-
-      body: SafeArea(
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-
-          padding: const EdgeInsets.fromLTRB(18, 20, 18, 36),
-
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-
-              child: Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: _cardBackground,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: _borderColor),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: _isDark ? 0.14 : 0.04,
-                      ),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(18, 20, 18, 30),
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 560),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    gradient: appGradient,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(23),
                     ),
-                  ],
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.manage_accounts_rounded,
+                        color: yellow,
+                        size: 32,
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Update Profile',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              'Keep your student information up to date.',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: nameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Full Name',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
 
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                      // DEPARTMENT
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedDepartment,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Department',
+                          prefixIcon: Icon(Icons.account_balance_outlined),
+                        ),
+                        items: departmentCourses.keys.map((department) {
+                          return DropdownMenuItem<String>(
+                            value: department,
+                            child: Text(
+                              department,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
 
-                  children: [
-                    // ==================================
-                    // HEADER
-                    // ==================================
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 24,
+                          setState(() {
+                            selectedDepartment = value;
+                            selectedCourse = departmentCourses[value]!.first;
+                          });
+                        },
                       ),
 
-                      decoration: const BoxDecoration(gradient: appGradient),
+                      const SizedBox(height: 14),
 
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.manage_accounts_rounded,
-                            color: yellow,
-                            size: 32,
-                          ),
-
-                          SizedBox(width: 13),
-
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-
-                              children: [
-                                Text(
-                                  'Update Profile',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 19,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-
-                                SizedBox(height: 5),
-
-                                Text(
-                                  'Keep your student information '
-                                  'up to date.',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // ==================================
-                    // PROFILE FORM
-                    // ==================================
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 26),
-
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-
-                        children: [
-                          // ============================
-                          // FULL NAME
-                          // ============================
-                          _fieldLabel('Full Name'),
-
-                          TextField(
-                            controller: nameController,
-
-                            textCapitalization: TextCapitalization.words,
-
-                            style: TextStyle(color: _primaryText, fontSize: 14),
-
-                            decoration: _inputDecoration(
-                              icon: Icons.person_outline,
-                              hint: 'Enter your full name',
-                            ),
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          // ============================
-                          // EMAIL
-                          // ============================
-                          _fieldLabel('Email Address'),
-
-                          TextField(
-                            controller: emailController,
-
-                            keyboardType: TextInputType.emailAddress,
-
-                            autocorrect: false,
-
-                            style: TextStyle(color: _primaryText, fontSize: 14),
-
-                            decoration: _inputDecoration(
-                              icon: Icons.email_outlined,
-                              hint: 'Enter your email address',
-                            ),
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          // ============================
-                          // DEPARTMENT
-                          // ============================
-                          _fieldLabel('Department'),
-
-                          DropdownButtonFormField<String>(
-                            initialValue: selectedDepartment,
-                            isExpanded: true,
-
-                            dropdownColor: _cardBackground,
-
-                            style: TextStyle(
-                              color: _primaryText,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-
-                            iconEnabledColor: _iconColor,
-
-                            decoration: _inputDecoration(
-                              icon: Icons.account_balance_outlined,
-                              hint: 'Select department',
-                            ),
-
-                            items: departmentCourses.keys.map((department) {
-                              return DropdownMenuItem<String>(
-                                value: department,
-                                child: Text(
-                                  department,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            }).toList(),
-
-                            onChanged: (value) {
-                              if (value == null) return;
-
-                              setState(() {
-                                selectedDepartment = value;
-
-                                selectedCourse =
-                                    departmentCourses[value]!.first;
-                              });
-                            },
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          // ============================
-                          // COURSE / PROGRAM
-                          // ============================
-                          _fieldLabel('Course / Program'),
-
-                          DropdownButtonFormField<String>(
-                            key: ValueKey('course-$selectedDepartment'),
-
-                            initialValue: selectedCourse,
-                            isExpanded: true,
-
-                            dropdownColor: _cardBackground,
-
-                            style: TextStyle(
-                              color: _primaryText,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-
-                            iconEnabledColor: _iconColor,
-
-                            decoration: _inputDecoration(
-                              icon: Icons.school_outlined,
-                              hint: 'Select course / program',
-                            ),
-
-                            items: departmentCourses[selectedDepartment]!.map((
-                              course,
+                      // DYNAMIC COURSE
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(selectedDepartment),
+                        initialValue: selectedCourse,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Course / Program',
+                          prefixIcon: Icon(Icons.school_outlined),
+                        ),
+                        items: departmentCourses[selectedDepartment]!.map((
+                            course,
                             ) {
-                              return DropdownMenuItem<String>(
-                                value: course,
-                                child: Text(
-                                  course,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            }).toList(),
+                          return DropdownMenuItem<String>(
+                            value: course,
+                            child: Text(course),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
 
-                            onChanged: (value) {
-                              if (value == null) return;
+                          setState(() {
+                            selectedCourse = value;
+                          });
+                        },
+                      ),
 
-                              setState(() {
-                                selectedCourse = value;
-                              });
-                            },
+                      const SizedBox(height: 14),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedYear,
+                        decoration: const InputDecoration(
+                          labelText: 'Year Level',
+                          prefixIcon: Icon(Icons.calendar_month_outlined),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: '1st Year',
+                            child: Text('1st Year'),
                           ),
-
-                          const SizedBox(height: 20),
-
-                          // ============================
-                          // YEAR LEVEL
-                          // ============================
-                          _fieldLabel('Year Level'),
-
-                          DropdownButtonFormField<String>(
-                            initialValue: selectedYear,
-                            isExpanded: true,
-
-                            dropdownColor: _cardBackground,
-
-                            style: TextStyle(
-                              color: _primaryText,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-
-                            iconEnabledColor: _iconColor,
-
-                            decoration: _inputDecoration(
-                              icon: Icons.calendar_month_outlined,
-                              hint: 'Select year level',
-                            ),
-
-                            items: const [
-                              DropdownMenuItem(
-                                value: '1st Year',
-                                child: Text('1st Year'),
-                              ),
-                              DropdownMenuItem(
-                                value: '2nd Year',
-                                child: Text('2nd Year'),
-                              ),
-                              DropdownMenuItem(
-                                value: '3rd Year',
-                                child: Text('3rd Year'),
-                              ),
-                              DropdownMenuItem(
-                                value: '4th Year',
-                                child: Text('4th Year'),
-                              ),
-                            ],
-
-                            onChanged: (value) {
-                              if (value == null) return;
-
-                              setState(() {
-                                selectedYear = value;
-                              });
-                            },
+                          DropdownMenuItem(
+                            value: '2nd Year',
+                            child: Text('2nd Year'),
                           ),
-
-                          const SizedBox(height: 20),
-
-                          // ============================
-                          // BLOCK
-                          // ============================
-                          _fieldLabel('Block'),
-
-                          DropdownButtonFormField<String>(
-                            initialValue: selectedBlock.isEmpty
-                                ? null
-                                : selectedBlock,
-
-                            isExpanded: true,
-
-                            dropdownColor: _cardBackground,
-
-                            style: TextStyle(
-                              color: _primaryText,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-
-                            iconEnabledColor: _iconColor,
-
-                            decoration: _inputDecoration(
-                              icon: Icons.groups_rounded,
-                              hint: 'Select block',
-                            ),
-
-                            items: blockOptions.map((block) {
-                              return DropdownMenuItem<String>(
-                                value: block,
-                                child: Text(
-                                  block,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            }).toList(),
-
-                            onChanged: (value) {
-                              if (value == null) return;
-
-                              setState(() {
-                                selectedBlock = value;
-                              });
-                            },
+                          DropdownMenuItem(
+                            value: '3rd Year',
+                            child: Text('3rd Year'),
                           ),
-
-                          const SizedBox(height: 30),
-
-                          // ============================
-                          // SAVE CHANGES
-                          // ============================
-                          SizedBox(
-                            width: double.infinity,
-                            height: 56,
-
-                            child: FilledButton.icon(
-                              onPressed: saveChanges,
-
-                              icon: const Icon(Icons.save_rounded, size: 21),
-
-                              label: const Text(
-                                'Save Changes',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-
-                              style: FilledButton.styleFrom(
-                                backgroundColor: yellow,
-                                foregroundColor: navy,
-
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                            ),
+                          DropdownMenuItem(
+                            value: '4th Year',
+                            child: Text('4th Year'),
                           ),
                         ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            selectedYear = value;
+                          });
+                        },
                       ),
-                    ),
-                  ],
+
+                      // Same numeric block entry used in Student Registration.
+                      TextFormField(
+                        controller: blockController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(2),
+                        ],
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        validator: (value) =>
+                        normalizeTmcBlock(value) == null
+                            ? 'Enter a block number from 1 to 11.'
+                            : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Block / Section',
+                          hintText: 'e.g. 1',
+                          helperText: 'Enter a number from 1 to 11',
+                          prefixIcon: Icon(Icons.groups_rounded),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+
+                      const SizedBox(height: 22),
+                      ElevatedButton.icon(
+                        onPressed: saveChanges,
+                        icon: const Icon(Icons.save_rounded),
+                        label: const Text('Save Changes'),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
@@ -593,11 +312,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 }
-
-// ======================================================
-// PROFILE INFORMATION COMPONENT
-// PRESERVED FOR EXISTING PROJECT REFERENCES
-// ======================================================
 
 class ProfileInfo extends StatelessWidget {
   final IconData icon;
@@ -613,61 +327,42 @@ class ProfileInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final dark = theme.brightness == Brightness.dark;
-    final colors = theme.colorScheme;
-
     return Container(
       padding: const EdgeInsets.all(14),
-
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colors.outlineVariant),
+        border: Border.all(color: borderColor),
       ),
-
       child: Row(
         children: [
           Container(
             width: 46,
             height: 46,
-
             decoration: BoxDecoration(
-              color: dark ? const Color(0xFF253F60) : lightNavy,
-
+              color: lightNavy,
               borderRadius: BorderRadius.circular(14),
             ),
-
-            child: Icon(
-              icon,
-              color: dark ? const Color(0xFFAED4FF) : navy,
-              size: 22,
-            ),
+            child: Icon(icon, color: navy, size: 22),
           ),
-
           const SizedBox(width: 12),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-
               children: [
                 Text(
                   title,
-                  style: TextStyle(
-                    color: colors.onSurfaceVariant,
+                  style: const TextStyle(
+                    color: textGrey,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-
                 const SizedBox(height: 2),
-
                 Text(
                   value.isEmpty ? 'Not provided' : value,
-
-                  style: TextStyle(
-                    color: colors.onSurface,
+                  style: const TextStyle(
+                    color: textDark,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

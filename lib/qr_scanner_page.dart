@@ -1,8 +1,10 @@
 part of 'main.dart';
 
-// ======================================================
-// TMC EVENTEASE - IMPROVED QR ATTENDANCE SCANNER
-// ======================================================
+// ==============================================================
+// TMC EVENTEASE • SCANNER WORKSPACE
+// Modern responsive UI, with the existing local QR logic preserved.
+// This file remains a part of main.dart (do not import Flutter here).
+// ==============================================================
 
 class QRCodePage extends StatefulWidget {
   const QRCodePage({super.key});
@@ -12,124 +14,110 @@ class QRCodePage extends StatefulWidget {
 }
 
 class _QRCodePageState extends State<QRCodePage> {
-  // ====================================================
-  // THEME-AWARE QR SCANNER COLORS
-  // ====================================================
-
-  Color get _surfaceColor => Theme.of(context).colorScheme.surface;
-
-  Color get _titleColor => Theme.of(context).colorScheme.onSurface;
-
-  Color get _subtitleColor => Theme.of(context).colorScheme.onSurfaceVariant;
-
-  Color get _outlineColor => Theme.of(context).colorScheme.outlineVariant;
-
   final QrVerificationService qrVerificationService = QrVerificationService();
-
-  Event? selectedEvent;
-
-  bool get canScanAttendance =>
-      savedUserRole == 'scanner' || savedUserRole == 'admin';
 
   final MobileScannerController scannerController = MobileScannerController(
     formats: const [BarcodeFormat.qrCode],
     detectionSpeed: DetectionSpeed.normal,
   );
 
-  // SCANNER STATES
+  Event? selectedEvent;
   bool processingScan = false;
   bool isVerifyingScan = false;
+  bool _torchEnabled = false;
+  bool _showAllHistory = false;
 
   String? lastMessage;
   String? lastResultStatus;
   bool lastScanSuccessful = false;
-
   Event? lastScannedEvent;
   String? lastScannedStudent;
   String? lastCheckInTime;
 
+  bool get canScanAttendance =>
+      savedUserRole == 'scanner' || savedUserRole == 'admin';
+
   String get scannerDisplayName =>
       savedName.trim().isNotEmpty ? savedName : demoScannerName;
 
-  // ====================================================
-  // RESULT COLORS AND ICONS
-  // ====================================================
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  Color get _background =>
+      _isDark ? const Color(0xFF0B1424) : const Color(0xFFF3F6FB);
+  Color get _surface => _isDark ? const Color(0xFF17263C) : Colors.white;
+  Color get _border =>
+      _isDark ? const Color(0xFF31445C) : const Color(0xFFE1E8F1);
+  Color get _ink =>
+      _isDark ? const Color(0xFFF1F6FD) : const Color(0xFF15283E);
+  Color get _muted =>
+      _isDark ? const Color(0xFFB0BED1) : const Color(0xFF6A7B90);
 
-  Color get resultColor {
+  Color get _resultColor {
     switch (lastResultStatus) {
       case 'present':
-        return const Color(0xFF27834A);
-
+        return const Color(0xFF16875A);
       case 'duplicate':
-        return const Color(0xFFAB6900);
-
+        return const Color(0xFFBA790C);
       default:
-        return const Color(0xFFC94747);
+        return const Color(0xFFD64A56);
     }
   }
 
-  Color get resultBackground {
+  IconData get _resultIcon {
     switch (lastResultStatus) {
       case 'present':
-        return const Color(0xFFE7F6EC);
-
+        return Icons.task_alt_rounded;
       case 'duplicate':
-        return const Color(0xFFFFF3D9);
-
-      default:
-        return const Color(0xFFFCE8E8);
-    }
-  }
-
-  IconData get resultIcon {
-    switch (lastResultStatus) {
-      case 'present':
-        return Icons.check_circle_rounded;
-
-      case 'duplicate':
-        return Icons.warning_amber_rounded;
-
-      case 'network_error':
-        return Icons.wifi_off_rounded;
-
-      default:
-        return Icons.error_outline_rounded;
-    }
-  }
-
-  String get resultTitle {
-    switch (lastResultStatus) {
-      case 'present':
-        return 'Attendance Recorded!';
-
-      case 'duplicate':
-        return 'Already Checked In';
-
+        return Icons.history_rounded;
       case 'wrong_event':
-        return 'Wrong Event QR Code';
-
-      case 'invalid':
-        return 'Invalid QR Code';
-
-      case 'network_error':
-        return 'Verification Failed';
-
+        return Icons.event_busy_rounded;
+      case 'verification_error':
+        return Icons.error_outline_rounded;
       default:
-        return lastScanSuccessful ? 'QR Verified' : 'Scan Not Accepted';
+        return Icons.qr_code_2_rounded;
     }
   }
 
-  // ====================================================
-  // EXISTING LOCAL TEST REGISTRATIONS
-  // ====================================================
+  String get _resultTitle {
+    switch (lastResultStatus) {
+      case 'present':
+        return 'Attendance recorded';
+      case 'duplicate':
+        return 'Already checked in';
+      case 'wrong_event':
+        return 'QR belongs to another event';
+      case 'invalid':
+        return 'Invalid QR pass';
+      case 'verification_error':
+        return 'Could not verify QR';
+      default:
+        return lastScanSuccessful ? 'QR verified' : 'Scan not accepted';
+    }
+  }
 
+  BoxDecoration _panelDecoration({double radius = 23}) => BoxDecoration(
+    color: _surface,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: _border),
+    boxShadow: _isDark
+        ? null
+        : [
+      const BoxShadow(
+        color: Color(0x0C15283E),
+        blurRadius: 22,
+        offset: Offset(0, 8),
+      ),
+    ],
+  );
+
+  // --------------------------------------------------------------
+  // Demo registration loading. No API calls are made in this page.
+  // --------------------------------------------------------------
   void loadMockRegistrations() {
+    if (ApiConfig.useRealApi) return;
     for (final event in registeredEvents) {
       final key = eventKey(event);
       final token = qrTokens[key];
-
       if (token == null || token.isEmpty) continue;
-
       qrVerificationService.addTestRegistration(
         token: token,
         eventId: key,
@@ -144,10 +132,6 @@ class _QRCodePageState extends State<QRCodePage> {
     loadMockRegistrations();
   }
 
-  // ====================================================
-  // DISPLAY SCAN RESULT
-  // ====================================================
-
   void _showScanResult({
     required String status,
     required String message,
@@ -157,41 +141,35 @@ class _QRCodePageState extends State<QRCodePage> {
     String? checkInTime,
   }) {
     if (!mounted) return;
-
     setState(() {
       isVerifyingScan = false;
-
-      // Keep scanner paused until officer selects
-      // Scan Another QR or Try Scanning Again.
       processingScan = true;
-
       lastResultStatus = status;
       lastScanSuccessful = success;
       lastMessage = message;
-
       lastScannedEvent = event;
       lastScannedStudent = studentName;
       lastCheckInTime = checkInTime;
     });
   }
 
-  // ====================================================
-  // HANDLE QR CODE
-  // ====================================================
-
+  // --------------------------------------------------------------
+  // Existing verification protections retained:
+  // selected event, registration token, duplicate attendance, demo.
+  // --------------------------------------------------------------
   Future<void> _handleQrCode(String rawValue) async {
-    if (processingScan || !canScanAttendance || selectedEvent == null) {
+    if (ApiConfig.useRealApi ||
+        processingScan ||
+        !canScanAttendance ||
+        selectedEvent == null) {
       return;
     }
 
     final event = selectedEvent!;
     final key = eventKey(event);
-
-    // Lock scanning immediately to avoid repeated scans.
     setState(() {
       processingScan = true;
       isVerifyingScan = true;
-
       lastMessage = null;
       lastResultStatus = null;
       lastScannedEvent = null;
@@ -202,53 +180,81 @@ class _QRCodePageState extends State<QRCodePage> {
     try {
       await scannerController.stop();
     } catch (_) {
-      // Camera may already be stopped.
+      // It is safe if the camera was already stopped.
     }
-
     if (!mounted) return;
 
     try {
-      // STEP 1: Decode the QR token.
       final token = decodeStudentEventQr(rawValue);
-
       if (token == null) {
         _showScanResult(
           status: 'invalid',
-          message: 'This is not a valid student event QR pass.',
+          message: 'This code is not a valid EventEase demo student QR pass.',
         );
         return;
       }
 
-      // STEP 2: Use the existing verification service.
-      // The current service still uses local test registrations.
+      final registeredForEvent = registeredEvents.any(
+            (entry) => eventKey(entry) == key,
+      );
+      final tokenMatchesEvent = registeredForEvent && qrTokens[key] == token;
+
+      if (!tokenMatchesEvent) {
+        final belongsToAnotherEvent = qrTokens.entries.any(
+              (entry) =>
+          entry.key != key &&
+              entry.value == token &&
+              registeredEvents.any((item) => eventKey(item) == entry.key),
+        );
+        _showScanResult(
+          status: belongsToAnotherEvent ? 'wrong_event' : 'invalid',
+          message: belongsToAnotherEvent
+              ? 'Choose the event associated with this demo QR pass.'
+              : 'No matching demo registration was found for this QR pass.',
+        );
+        return;
+      }
+
+      // Reopening the scanner must not allow attendance to be recorded twice.
+      if (attendanceStatus[key] == 'Present') {
+        scanHistory.insert(
+          0,
+          ScanHistory(
+            eventTitle: event.title,
+            studentName: savedName,
+            scannerName: scannerDisplayName,
+            status: 'Duplicate',
+            scannedAt: DateTime.now(),
+          ),
+        );
+        _showScanResult(
+          status: 'duplicate',
+          message: 'Demo attendance was already recorded for this event.',
+          event: event,
+          studentName: savedName,
+          checkInTime: attendanceCheckInTime[key],
+        );
+        return;
+      }
+
       final result = await qrVerificationService.verifyQr(
         token: token,
         eventId: key,
         eventTitle: event.title,
       );
-
       if (!mounted) return;
 
       final now = DateTime.now();
-
-      final status = result.status.toString().toLowerCase();
-
-      final accepted = status == 'present';
+      final status = result.status.toString().toLowerCase().split('.').last;
+      final accepted = status == 'present' && result.success;
       final duplicate = status == 'duplicate';
       final scannedTime = result.checkInTime;
 
-      // Preserve existing local attendance updates.
-      // Real Laravel synchronization will be added
-      // when the backend verification API is available.
-      if (accepted &&
-          registeredEvents.contains(event) &&
-          qrTokens[key] == token) {
+      if (accepted && tokenMatchesEvent) {
         attendanceStatus[key] = 'Present';
-
         attendanceCheckInTime[key] = scannedTime ?? formatCheckInTime(now);
       }
 
-      // Preserve recent scan history.
       if (accepted || duplicate) {
         scanHistory.insert(
           0,
@@ -262,11 +268,10 @@ class _QRCodePageState extends State<QRCodePage> {
         );
       }
 
-      // STEP 3: Display verification result.
       _showScanResult(
         status: status,
         message: result.message,
-        success: result.success,
+        success: accepted,
         event: accepted || duplicate ? event : null,
         studentName: accepted || duplicate ? result.studentName : null,
         checkInTime: accepted
@@ -275,44 +280,58 @@ class _QRCodePageState extends State<QRCodePage> {
             ? scannedTime
             : null,
       );
-
       refreshNotifications();
     } catch (error) {
-      debugPrint('QR verification error: $error');
-
+      debugPrint('Demo QR verification error: $error');
       _showScanResult(
-        status: 'network_error',
-        message:
-            'Unable to verify this QR code. '
-            'Check your connection and try again.',
+        status: 'verification_error',
+        message: 'Demo verification failed. Please try again.',
       );
     }
   }
 
-  // ====================================================
-  // SCAN ANOTHER QR / RETRY
-  // ====================================================
-
   Future<void> _scanAgain() async {
     if (!mounted || isVerifyingScan) return;
-
     setState(() {
       processingScan = false;
       isVerifyingScan = false;
-
       lastMessage = null;
       lastResultStatus = null;
       lastScanSuccessful = false;
-
       lastScannedEvent = null;
       lastScannedStudent = null;
       lastCheckInTime = null;
     });
-
     try {
       await scannerController.start();
     } catch (_) {
-      // Camera may already be running.
+      // The scanner may already be running.
+    }
+  }
+
+  Future<void> _toggleTorch() async {
+    if (isVerifyingScan) return;
+    try {
+      await scannerController.toggleTorch();
+      if (mounted) setState(() => _torchEnabled = !_torchEnabled);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Flashlight is unavailable on this camera.')),
+      );
+    }
+  }
+
+  Future<void> _switchCamera() async {
+    if (isVerifyingScan) return;
+    try {
+      await scannerController.switchCamera();
+      if (mounted) setState(() => _torchEnabled = false);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Camera switching is unavailable.')),
+      );
     }
   }
 
@@ -322,24 +341,761 @@ class _QRCodePageState extends State<QRCodePage> {
     super.dispose();
   }
 
-  // ====================================================
-  // MAIN SCANNER PAGE
-  // ====================================================
+  // --------------------------------------------------------------
+  // Reusable UI components
+  // --------------------------------------------------------------
+  Widget _eyebrow(String text) => Text(
+    text.toUpperCase(),
+    style: TextStyle(
+      color: _muted,
+      fontSize: 10,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 1.7,
+    ),
+  );
+
+  Widget _sectionHeader(String number, String title, {String? hint}) => Row(
+    children: [
+      Container(
+        width: 30,
+        height: 30,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _isDark
+              ? const Color(0xFF293F60)
+              : const Color(0xFFEAF1FA),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          number,
+          style: TextStyle(
+            color: _isDark ? const Color(0xFFFFD36B) : navy,
+            fontWeight: FontWeight.w900,
+            fontSize: 12,
+          ),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Text(
+          title,
+          style: TextStyle(
+            color: _ink,
+            fontSize: 17,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+      if (hint != null)
+        Text(
+          hint,
+          style: TextStyle(color: _muted, fontSize: 11),
+        ),
+    ],
+  );
+
+  Widget _metric(String number, String label, IconData icon) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: const Color(0xFFFFD46C)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  number,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 19,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFD2E0F4),
+                    fontSize: 10.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _hero() {
+    final totalPresent = scanHistory.where((r) => r.status == 'Present').length;
+    final totalDuplicates =
+        scanHistory.where((r) => r.status == 'Duplicate').length;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF092B58), Color(0xFF13508B), Color(0xFF1A618F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(26),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 43,
+                height: 43,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.qr_code_scanner_rounded,
+                  color: Color(0xFFFFD46C),
+                  size: 25,
+                ),
+              ),
+              const SizedBox(width: 11),
+              const Expanded(
+                child: Text(
+                  'EVENTEASE  /  SCAN STATION',
+                  style: TextStyle(
+                    color: Color(0xFFE4F0FC),
+                    fontSize: 11,
+                    letterSpacing: 1.0,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFD46C),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'DEMO MODE',
+                  style: TextStyle(
+                    color: Color(0xFF102A4C),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 9,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Attendance scanner',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.6,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Ready for ${scannerDisplayName.trim().isEmpty ? 'demo testing' : scannerDisplayName}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFFCFDFF1),
+              fontSize: 12.5,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              _metric('$totalPresent', 'Demo check-ins', Icons.check_circle_outline),
+              const SizedBox(width: 10),
+              _metric('$totalDuplicates', 'Duplicate attempts', Icons.shield_outlined),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _eventPicker() => Container(
+    padding: const EdgeInsets.all(17),
+    decoration: _panelDecoration(),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader('01', 'Choose an event', hint: 'Required'),
+        const SizedBox(height: 6),
+        Text(
+          'Select the event before scanning a student pass.',
+          style: TextStyle(color: _muted, fontSize: 12.5),
+        ),
+        const SizedBox(height: 15),
+        DropdownButtonFormField<Event>(
+          key: ValueKey(selectedEvent),
+          initialValue: selectedEvent,
+          isExpanded: true,
+          hint: const Text('Select campus event'),
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.event_available_outlined),
+            filled: true,
+            fillColor: _isDark
+                ? const Color(0xFF1E324E)
+                : const Color(0xFFF6F8FC),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 15,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide(color: _border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide(color: _border),
+            ),
+          ),
+          items: eventList
+              .map(
+                (event) => DropdownMenuItem<Event>(
+              value: event,
+              child: Text(
+                event.title,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          )
+              .toList(),
+          onChanged: isVerifyingScan
+              ? null
+              : (value) {
+            if (value == null) return;
+            setState(() => selectedEvent = value);
+            _scanAgain();
+          },
+        ),
+        if (selectedEvent != null) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(
+                Icons.check_circle_rounded,
+                color: Color(0xFF19966B),
+                size: 17,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  '${selectedEvent!.date}  ·  ${selectedEvent!.venue}',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: _muted, fontSize: 11.5),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    ),
+  );
+
+  Widget _cameraButton(IconData icon, String tooltip, VoidCallback callback) =>
+      Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.white.withValues(alpha: 0.15),
+          shape: const CircleBorder(),
+          child: IconButton(
+            onPressed: isVerifyingScan ? null : callback,
+            icon: Icon(icon, color: Colors.white),
+          ),
+        ),
+      );
+
+  Widget _cameraPanel() => Container(
+    decoration: _panelDecoration(),
+    padding: const EdgeInsets.all(15),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader('02', 'Scan student pass'),
+        const SizedBox(height: 13),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(21),
+          child: SizedBox(
+            height: 340,
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const ColoredBox(color: Color(0xFF071321)),
+                MobileScanner(
+                  controller: scannerController,
+                  onDetect: (capture) {
+                    if (selectedEvent == null || processingScan) return;
+                    if (capture.barcodes.isEmpty) return;
+                    final raw = capture.barcodes.first.rawValue;
+                    if (raw == null || raw.isEmpty) return;
+                    _handleQrCode(raw);
+                  },
+                ),
+                // Subtle lens tint to anchor the QR frame.
+                IgnorePointer(
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.10),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.center,
+                  child: SizedBox(
+                    width: 218,
+                    height: 218,
+                    child: CustomPaint(
+                      painter: _EventEaseScanCorners(
+                        color: const Color(0xFFFFD46C),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 13,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        selectedEvent == null
+                            ? 'SELECT AN EVENT TO BEGIN'
+                            : lastMessage != null
+                            ? 'SCANNER PAUSED'
+                            : 'ALIGN QR INSIDE THE FRAME',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 10,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (selectedEvent == null || lastMessage != null || isVerifyingScan)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ColoredBox(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        child: Center(
+                          child: isVerifyingScan
+                              ? const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(
+                                color: Color(0xFFFFD46C),
+                              ),
+                              SizedBox(height: 14),
+                              Text(
+                                'Verifying demo QR...',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          )
+                              : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                lastMessage == null
+                                    ? Icons.event_note_rounded
+                                    : Icons.pause_circle_outline_rounded,
+                                color: const Color(0xFFFFD46C),
+                                size: 42,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                lastMessage == null
+                                    ? 'Choose an event above'
+                                    : 'Review the result below',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  bottom: 13,
+                  right: 13,
+                  child: Row(
+                    children: [
+                      _cameraButton(
+                        _torchEnabled
+                            ? Icons.flash_on_rounded
+                            : Icons.flash_off_rounded,
+                        'Toggle flashlight',
+                        _toggleTorch,
+                      ),
+                      const SizedBox(width: 7),
+                      _cameraButton(
+                        Icons.cameraswitch_rounded,
+                        'Switch camera',
+                        _switchCamera,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 13),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              selectedEvent == null
+                  ? Icons.info_outline_rounded
+                  : lastMessage != null
+                  ? Icons.pause_circle_outline_rounded
+                  : Icons.radio_button_checked_rounded,
+              color: selectedEvent == null
+                  ? _muted
+                  : lastMessage != null
+                  ? const Color(0xFFBA790C)
+                  : const Color(0xFF159F79),
+              size: 19,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                selectedEvent == null
+                    ? 'Camera is ready. Select an event to enable verification.'
+                    : lastMessage != null
+                    ? 'Scanning paused. Use the button below to continue.'
+                    : 'Scanning ${selectedEvent!.title}. Hold the QR code steady.',
+                style: TextStyle(
+                  color: _muted,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  Widget _resultPanel() {
+    if (lastMessage == null) return const SizedBox.shrink();
+    final color = _resultColor;
+    final isSuccess = lastResultStatus == 'present';
+    final background = _isDark
+        ? color.withValues(alpha: 0.12)
+        : color.withValues(alpha: 0.07);
+
+    return Container(
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(23),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(_resultIcon, color: color, size: 27),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _eyebrow('Demo verification result'),
+                    const SizedBox(height: 4),
+                    Text(
+                      _resultTitle,
+                      style: TextStyle(
+                        color: _ink,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                isSuccess ? Icons.verified_rounded : Icons.info_outline_rounded,
+                color: color,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            lastMessage!,
+            style: TextStyle(color: _muted, fontSize: 12.5, height: 1.5),
+          ),
+          if (lastScannedEvent != null) ...[
+            const SizedBox(height: 12),
+            Divider(color: color.withValues(alpha: 0.2)),
+            const SizedBox(height: 4),
+            _resultDetail(Icons.event_outlined, lastScannedEvent!.title),
+            if (lastScannedStudent != null && lastScannedStudent!.isNotEmpty)
+              _resultDetail(Icons.person_outline, lastScannedStudent!),
+            if (lastCheckInTime != null && lastCheckInTime!.isNotEmpty)
+              _resultDetail(Icons.schedule_rounded, lastCheckInTime!),
+          ],
+          const SizedBox(height: 15),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: _scanAgain,
+              style: FilledButton.styleFrom(
+                backgroundColor: navy,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              icon: const Icon(Icons.qr_code_scanner_rounded),
+              label: Text(isSuccess || lastResultStatus == 'duplicate'
+                  ? 'Scan another QR'
+                  : 'Try scanning again'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _resultDetail(IconData icon, String value) => Padding(
+    padding: const EdgeInsets.only(top: 9),
+    child: Row(
+      children: [
+        Icon(icon, color: _muted, size: 16),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(color: _ink, fontSize: 12.5),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _historyPanel() {
+    final visible = _showAllHistory ? scanHistory : scanHistory.take(4).toList();
+    return Container(
+      decoration: _panelDecoration(),
+      padding: const EdgeInsets.all(17),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader('03', 'Recent scans', hint: '${scanHistory.length} total'),
+          const SizedBox(height: 14),
+          if (scanHistory.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 23, horizontal: 12),
+              decoration: BoxDecoration(
+                color: _isDark
+                    ? const Color(0xFF1D3049)
+                    : const Color(0xFFF7F9FC),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  Icon(Icons.history_toggle_off_rounded, color: _muted, size: 32),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No scans yet',
+                    style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Verified demo check-ins will appear here.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: _muted, fontSize: 12),
+                  ),
+                ],
+              ),
+            )
+          else
+            ...visible.map(_historyRow),
+          if (scanHistory.length > 4) ...[
+            const SizedBox(height: 3),
+            TextButton.icon(
+              onPressed: () => setState(() => _showAllHistory = !_showAllHistory),
+              icon: Icon(_showAllHistory
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded),
+              label: Text(_showAllHistory ? 'Show fewer' : 'View all scans'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _historyRow(ScanHistory record) {
+    final present = record.status == 'Present';
+    final color = present ? const Color(0xFF16875A) : const Color(0xFFBA790C);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 41,
+            height: 41,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.11),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(
+              present ? Icons.check_circle_outline : Icons.history_rounded,
+              color: color,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  record.studentName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  record.eventTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: _muted, fontSize: 11.5),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                record.status.toUpperCase(),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                formatCheckInTime(record.scannedAt),
+                style: TextStyle(color: _muted, fontSize: 11),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _notice() => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: _isDark
+          ? const Color(0xFF253248)
+          : const Color(0xFFEDF1F7),
+      borderRadius: BorderRadius.circular(17),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.shield_outlined, color: _muted, size: 19),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'LOCAL DEMONSTRATION ONLY  •  QR checks and attendance '
+                'history are stored in the app session, not in Laravel. '
+                'Official verification requires server-side authorization.',
+            style: TextStyle(color: _muted, fontSize: 11.5, height: 1.5),
+          ),
+        ),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
+    if (ApiConfig.useRealApi) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Attendance Scanner')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: EmptyState(
+              icon: Icons.cloud_off_outlined,
+              title: 'Online verification unavailable',
+              message: 'The Laravel attendance verification API is not yet '
+                  'connected. Switch to Demo Mode for local UI testing.',
+            ),
+          ),
+        ),
+      );
+    }
+
     if (!canScanAttendance) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Scan Attendance')),
+        appBar: AppBar(title: const Text('Attendance Scanner')),
         body: const Center(
           child: Padding(
             padding: EdgeInsets.all(24),
             child: EmptyState(
               icon: Icons.admin_panel_settings_outlined,
-              title: 'Authorized Personnel Only',
-              message:
-                  'QR attendance scanning is available '
-                  'only to authorized event personnel.',
+              title: 'Scanner access unavailable',
+              message: 'This scanner view is for authorized event personnel. '
+                  'Demo role selection is not real authentication.',
             ),
           ),
         ),
@@ -347,472 +1103,95 @@ class _QRCodePageState extends State<QRCodePage> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan Attendance')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
-        children: [
-          // ============================================
-          // AUTHORIZED SCANNER CARD
-          // ============================================
-          Container(
-            padding: const EdgeInsets.all(14),
-
-            decoration: BoxDecoration(
-              color: _surfaceColor,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _outlineColor),
-            ),
-
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.admin_panel_settings_rounded,
-                  color: navy,
-                  size: 30,
-                ),
-
-                const SizedBox(width: 12),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Authorized Scanner',
-                        style: TextStyle(color: textGrey, fontSize: 12),
-                      ),
-                      Text(
-                        scannerDisplayName,
-                        style: const TextStyle(
-                          color: textDark,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const Icon(
-                  Icons.verified_user_rounded,
-                  color: Color(0xFF27834A),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ============================================
-          // SELECT EVENT
-          // ============================================
-          DropdownButtonFormField<Event>(
-            key: ValueKey(selectedEvent),
-            initialValue: selectedEvent,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Select Event to Scan',
-              prefixIcon: Icon(Icons.event_available_outlined),
-            ),
-            hint: const Text('Choose an event'),
-            items: eventList.map((event) {
-              return DropdownMenuItem<Event>(
-                value: event,
-                child: Text(event.title, overflow: TextOverflow.ellipsis),
-              );
-            }).toList(),
-            onChanged: isVerifyingScan
-                ? null
-                : (event) {
-                    if (event == null) return;
-
-                    setState(() {
-                      selectedEvent = event;
-                    });
-
-                    _scanAgain();
-                  },
-          ),
-
-          const SizedBox(height: 18),
-
-          // ============================================
-          // SCANNER HEADER
-          // ============================================
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: appGradient,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.qr_code_scanner_rounded, color: yellow, size: 36),
-
-                SizedBox(width: 14),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Scan Student QR',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-
-                      SizedBox(height: 4),
-
-                      Text(
-                        'Select an event and scan the QR '
-                        'pass presented by a registered student.',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12.5,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 18),
-
-          // ============================================
-          // CAMERA SCANNER
-          // ============================================
-          Container(
-            height: 360,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: borderColor),
-            ),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                MobileScanner(
-                  controller: scannerController,
-                  onDetect: (capture) {
-                    if (selectedEvent == null || processingScan) {
-                      return;
-                    }
-
-                    if (capture.barcodes.isEmpty) return;
-
-                    final rawValue = capture.barcodes.first.rawValue;
-
-                    if (rawValue == null || rawValue.isEmpty) {
-                      return;
-                    }
-
-                    _handleQrCode(rawValue);
-                  },
-                ),
-
-                // QR SCAN FRAME
-                Center(
-                  child: Container(
-                    width: 235,
-                    height: 235,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: yellow, width: 3),
-                    ),
-                  ),
-                ),
-
-                // LOADING OVERLAY
-                if (isVerifyingScan)
-                  Positioned.fill(
-                    child: ColoredBox(
-                      color: const Color(0xC8000000),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const CircularProgressIndicator(color: yellow),
-
-                          const SizedBox(height: 18),
-
-                          const Text(
-                            'Verifying QR Code...',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-
-                          const SizedBox(height: 6),
-
-                          const Text(
-                            'Please wait for the scan result.',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                // PAUSED / NO EVENT OVERLAY
-                else if (lastMessage != null || selectedEvent == null)
-                  Positioned.fill(
-                    child: ColoredBox(
-                      color: const Color(0xA6000000),
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            selectedEvent == null
-                                ? 'Choose an event above '
-                                      'to start scanning.'
-                                : 'Scanner paused. Review '
-                                      'the result below.',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                // ACTIVE SCANNER INSTRUCTIONS
-                else
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 16,
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          'Place the QR inside the frame',
-                          style: TextStyle(color: Colors.white, fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 18),
-
-          // ============================================
-          // SCAN RESULT CARD
-          // ============================================
-          if (lastMessage != null)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: resultBackground,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: resultColor.withValues(alpha: 0.25)),
+      backgroundColor: _background,
+      appBar: AppBar(
+        backgroundColor: _background,
+        foregroundColor: _ink,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        titleSpacing: 15,
+        title: Row(
+          children: [
+            Icon(Icons.qr_code_2_rounded, color: _isDark ? yellow : navy),
+            const SizedBox(width: 9),
+            Text(
+              'Scan Station',
+              style: TextStyle(
+                color: _ink,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(resultIcon, color: resultColor, size: 30),
-
-                      const SizedBox(width: 10),
-
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              resultTitle,
-                              style: TextStyle(
-                                color: resultColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-
-                            const SizedBox(height: 4),
-
-                            Text(
-                              lastMessage!,
-                              style: TextStyle(
-                                color: resultColor,
-                                fontSize: 13,
-                                height: 1.4,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // EVENT AND STUDENT INFORMATION
-                  if (lastScannedEvent != null) ...[
-                    const SizedBox(height: 12),
-
-                    Divider(color: resultColor.withValues(alpha: 0.2)),
-
-                    const SizedBox(height: 8),
-
-                    Text(
-                      lastScannedEvent!.title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: textDark,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-
-                    if (lastScannedStudent != null &&
-                        lastScannedStudent!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-
-                      Text(
-                        'Student: $lastScannedStudent',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: textGrey),
-                      ),
-                    ],
-
-                    if (lastCheckInTime != null &&
-                        lastCheckInTime!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-
-                      Text(
-                        'Check-in: $lastCheckInTime',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: textGrey),
-                      ),
-                    ],
-                  ],
-
-                  const SizedBox(height: 14),
-
-                  // SCAN AGAIN BUTTON
-                  OutlinedButton.icon(
-                    onPressed: _scanAgain,
-                    icon: const Icon(Icons.qr_code_scanner_rounded),
-                    label: Text(
-                      lastScanSuccessful || lastResultStatus == 'duplicate'
-                          ? 'Scan Another QR'
-                          : 'Try Scanning Again',
-                    ),
-                  ),
+            ),
+          ],
+        ),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 700),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+              children: [
+                _hero(),
+                const SizedBox(height: 17),
+                _eventPicker(),
+                const SizedBox(height: 17),
+                _cameraPanel(),
+                if (lastMessage != null) ...[
+                  const SizedBox(height: 17),
+                  _resultPanel(),
                 ],
-              ),
+                const SizedBox(height: 17),
+                _historyPanel(),
+                const SizedBox(height: 17),
+                _notice(),
+              ],
             ),
-
-          const SizedBox(height: 24),
-
-          // ============================================
-          // RECENT SCAN HISTORY
-          // ============================================
-          sectionTitle('Recent Scan History'),
-
-          const SizedBox(height: 12),
-
-          if (scanHistory.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'No attendance scans recorded yet.',
-                style: TextStyle(color: textGrey),
-              ),
-            )
-          else
-            ...scanHistory.take(10).map((record) {
-              final isPresent = record.status == 'Present';
-
-              final time = formatCheckInTime(record.scannedAt);
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-
-                decoration: BoxDecoration(
-                  color: _surfaceColor,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: _outlineColor),
-                ),
-
-                child: Row(
-                  children: [
-                    Icon(
-                      isPresent
-                          ? Icons.check_circle_rounded
-                          : Icons.warning_amber_rounded,
-                      color: isPresent ? Colors.green : Colors.orange,
-                      size: 28,
-                    ),
-
-                    const SizedBox(width: 12),
-
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            record.studentName,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: _titleColor,
-                            ),
-                          ),
-
-                          Text(
-                            record.eventTitle,
-                            style: TextStyle(
-                              color: _subtitleColor,
-                              fontSize: 12,
-                            ),
-                          ),
-
-                          Text(
-                            '${record.status} • $time',
-                            style: TextStyle(
-                              color: isPresent ? Colors.green : Colors.orange,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-
-          const SizedBox(height: 18),
-
-          // CURRENT VERIFICATION MODE
-          const Text(
-            'Local verification is currently active. '
-            'Scans shown here are not automatically '
-            'saved to the Laravel database.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: textGrey, fontSize: 11.5, height: 1.4),
           ),
-        ],
+        ),
       ),
     );
   }
+}
+
+// Decorative camera-frame corners. No dependencies or network calls.
+class _EventEaseScanCorners extends CustomPainter {
+  final Color color;
+  const _EventEaseScanCorners({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+    const edge = 37.0;
+    const inset = 2.5;
+    final w = size.width - inset;
+    final h = size.height - inset;
+
+    final corners = Path()
+      ..moveTo(inset, edge)
+      ..lineTo(inset, 17)
+      ..quadraticBezierTo(inset, inset, 17, inset)
+      ..lineTo(edge, inset)
+      ..moveTo(w - edge, inset)
+      ..lineTo(w - 17, inset)
+      ..quadraticBezierTo(w, inset, w, 17)
+      ..lineTo(w, edge)
+      ..moveTo(w, h - edge)
+      ..lineTo(w, h - 17)
+      ..quadraticBezierTo(w, h, w - 17, h)
+      ..lineTo(w - edge, h)
+      ..moveTo(edge, h)
+      ..lineTo(17, h)
+      ..quadraticBezierTo(inset, h, inset, h - 17)
+      ..lineTo(inset, h - edge);
+    canvas.drawPath(corners, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _EventEaseScanCorners oldDelegate) =>
+      oldDelegate.color != color;
 }
