@@ -100,13 +100,15 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   bool get _blockEligible => widget.event.allowedBlocks.contains(savedBlock);
 
+
   bool get _hasAvailableSlot {
-    final registered = _isRegistered;
+    // A student who already registered keeps their status.
+    if (_isRegistered) return true;
 
-    final total = widget.event.currentParticipants + (registered ? 1 : 0);
-
-    return total < widget.event.capacity || registered;
+    // Only allow new registrations if slots remain.
+    return _availableSlots > 0;
   }
+
 
   bool get _eligibleToRegister =>
       _profileComplete &&
@@ -118,11 +120,24 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       !_deadlinePassed &&
       widget.event.registrationOpen;
 
-  int get _displayParticipantCount {
-    final registered = _isRegistered;
 
-    return widget.event.currentParticipants + (registered ? 1 : 0);
+  int get _displayParticipantCount {
+    final capacity = max(0, widget.event.capacity);
+
+    // Original participant count from the Event model.
+    final baseCount = widget.event.currentParticipants
+        .clamp(0, capacity)
+        .toInt();
+
+    // Only add one locally registered student in Demo Mode.
+    // In Real API Mode, the server should supply the count.
+    final demoAddition =
+    !ApiConfig.useRealApi && _isRegistered ? 1 : 0;
+
+    // Never display more participants than the capacity.
+    return min(capacity, baseCount + demoAddition);
   }
+
 
   int get _availableSlots =>
       max(0, widget.event.capacity - _displayParticipantCount);
@@ -143,50 +158,80 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   // REGISTRATION DEADLINE
   // ====================================================
 
+
   bool get _deadlinePassed {
-    final dateText = widget.event.registrationDeadline
-        .replaceAll(',', '')
-        .trim();
+    final raw = widget.event.registrationDeadline.trim();
 
-    final parts = dateText.split(RegExp(r'\s+'));
+    if (raw.isEmpty) return true;
 
-    const months = {
-      'January': 1,
-      'February': 2,
-      'March': 3,
-      'April': 4,
-      'May': 5,
-      'June': 6,
-      'July': 7,
-      'August': 8,
-      'September': 9,
-      'October': 10,
-      'November': 11,
-      'December': 12,
-    };
+    DateTime? deadline;
 
-    if (parts.length != 3) return true;
+    // Support ISO format: 2026-10-19
+    final isoMatch = RegExp(
+      r'^(\d{4})-(\d{2})-(\d{2})$',
+    ).firstMatch(raw);
 
-    final month = months[parts[0]];
-    final day = int.tryParse(parts[1]);
-    final year = int.tryParse(parts[2]);
+    if (isoMatch != null) {
+      final year = int.parse(isoMatch.group(1)!);
+      final month = int.parse(isoMatch.group(2)!);
+      final day = int.parse(isoMatch.group(3)!);
 
-    if (month == null || day == null || year == null) {
-      return true;
+      deadline = DateTime(year, month, day);
+
+      if (deadline.year != year ||
+          deadline.month != month ||
+          deadline.day != day) {
+        return true;
+      }
+    } else {
+      // Support readable format: October 19, 2026
+      final cleaned = raw.replaceAll(',', '');
+      final parts = cleaned.split(RegExp(r'\s+'));
+
+      const months = {
+        'january': 1,
+        'february': 2,
+        'march': 3,
+        'april': 4,
+        'may': 5,
+        'june': 6,
+        'july': 7,
+        'august': 8,
+        'september': 9,
+        'october': 10,
+        'november': 11,
+        'december': 12,
+      };
+
+      if (parts.length != 3) return true;
+
+      final month = months[parts[0].toLowerCase()];
+      final day = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+
+      if (month == null || day == null || year == null) {
+        return true;
+      }
+
+      deadline = DateTime(year, month, day);
+
+      if (deadline.year != year ||
+          deadline.month != month ||
+          deadline.day != day) {
+        return true;
+      }
     }
 
-    final deadline = DateTime(year, month, day);
-
-    if (deadline.year != year ||
-        deadline.month != month ||
-        deadline.day != day) {
-      return true;
-    }
-
-    final closingTime = DateTime(year, month, day + 1);
+    // Registration remains open through the deadline date.
+    final closingTime = DateTime(
+      deadline.year,
+      deadline.month,
+      deadline.day + 1,
+    );
 
     return !DateTime.now().isBefore(closingTime);
   }
+
 
   // ====================================================
   // OPEN EVALUATION
@@ -1217,9 +1262,12 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   _participantInfoRow(
                     icon: Icons.people_alt_outlined,
                     label: 'Available Slots',
-                    value:
-                        '$_availableSlots available out of '
+
+                    value: _availableSlots == 0
+                        ? 'FULL - 0 slots remaining'
+                        : '$_availableSlots available out of '
                         '${widget.event.capacity} slots',
+
                   ),
 
                   const SizedBox(height: 10),

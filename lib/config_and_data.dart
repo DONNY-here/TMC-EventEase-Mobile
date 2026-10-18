@@ -260,6 +260,7 @@ const List<Event> eventList = [
     registrationDeadline: 'September 18, 2026',
   ),
 
+
   Event(
     title: 'TMC Leadership Training',
     date: 'October 20, 2026',
@@ -271,20 +272,16 @@ const List<Event> eventList = [
     department: 'All Departments',
 
     eligibleParticipants: 'All TMC Students',
-    allowedCourses: [
-      'BSIT',
-      'BEED',
-      'BSED',
-      'BSCRIM',
-      'BSOA',
-      'AB Political Science',
-      'AB Communication',
-    ],
+    allowedCourses: courseOptions,
     allowedYears: allYearLevels,
+    allowedBlocks: blockOptions,
+
     capacity: 200,
     currentParticipants: 0,
     registrationDeadline: 'October 19, 2026',
+    registrationOpen: true,
   ),
+
 
   Event(
     title: 'CCS Programming Competition',
