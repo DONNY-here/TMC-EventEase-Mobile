@@ -19,6 +19,8 @@ import 'eventease_profile_view.dart';
 
 import 'package:printing/printing.dart';
 
+// flutter analyzeimport 'helpers/event_eligibility.dart';
+
 
 part 'config_and_data.dart';
 part 'app.dart';

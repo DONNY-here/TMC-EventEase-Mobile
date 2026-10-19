@@ -85,7 +85,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
       return;
     }
 
-    // Save all changes together.
+    // Real API accounts must be updated through an authenticated Laravel
+    // profile endpoint. Never claim that a local edit changed official data.
+    if (ApiConfig.useRealApi) {
+      showMessage(
+        context,
+        'Online profile editing is temporarily unavailable. '
+        'Your account was not changed.',
+      );
+      return;
+    }
+
+    // Demo Mode only: save local preview data.
     savedName = name;
     savedEmail = email;
     savedDepartment = selectedDepartment;
@@ -93,7 +104,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     savedYear = selectedYear;
     savedBlock = normalizedBlock;
 
-    showMessage(context, 'Profile updated successfully!');
+    showMessage(context, 'Demo profile updated locally.');
     Navigator.pop(context);
   }
 
@@ -115,7 +126,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           child: Container(
             constraints: const BoxConstraints(maxWidth: 560),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: borderColor),
             ),
@@ -167,6 +178,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
+                      if (ApiConfig.useRealApi) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Profile editing requires the Laravel server. '
+                            'You can review these fields now, but changes cannot '
+                            'be saved until the account update API is connected.',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       TextField(
                         controller: nameController,
                         decoration: const InputDecoration(
@@ -224,8 +254,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           prefixIcon: Icon(Icons.school_outlined),
                         ),
                         items: departmentCourses[selectedDepartment]!.map((
-                            course,
-                            ) {
+                          course,
+                        ) {
                           return DropdownMenuItem<String>(
                             value: course,
                             child: Text(course),
@@ -282,8 +312,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           LengthLimitingTextInputFormatter(2),
                         ],
                         autovalidateMode: AutovalidateMode.onUserInteraction,
-                        validator: (value) =>
-                        normalizeTmcBlock(value) == null
+                        validator: (value) => normalizeTmcBlock(value) == null
                             ? 'Enter a block number from 1 to 11.'
                             : null,
                         decoration: const InputDecoration(
@@ -297,9 +326,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
                       const SizedBox(height: 22),
                       ElevatedButton.icon(
-                        onPressed: saveChanges,
+                        onPressed: ApiConfig.useRealApi ? null : saveChanges,
                         icon: const Icon(Icons.save_rounded),
-                        label: const Text('Save Changes'),
+                        label: Text(
+                          ApiConfig.useRealApi
+                              ? 'Online Save Unavailable'
+                              : 'Save Demo Changes',
+                        ),
                       ),
                     ],
                   ),

@@ -54,7 +54,7 @@ class _QRCodePageState extends State<QRCodePage> {
 
   bool get canScanAttendance =>
       savedUserRole.trim().toLowerCase() == 'scanner' ||
-          savedUserRole.trim().toLowerCase() == 'admin';
+      savedUserRole.trim().toLowerCase() == 'admin';
 
   String get scannerDisplayName =>
       savedName.trim().isNotEmpty ? savedName : demoScannerName;
@@ -65,8 +65,7 @@ class _QRCodePageState extends State<QRCodePage> {
   Color get _surface => _isDark ? const Color(0xFF17263C) : Colors.white;
   Color get _border =>
       _isDark ? const Color(0xFF31445C) : const Color(0xFFE1E8F1);
-  Color get _ink =>
-      _isDark ? const Color(0xFFF1F6FD) : const Color(0xFF15283E);
+  Color get _ink => _isDark ? const Color(0xFFF1F6FD) : const Color(0xFF15283E);
   Color get _muted =>
       _isDark ? const Color(0xFFB0BED1) : const Color(0xFF6A7B90);
 
@@ -76,6 +75,8 @@ class _QRCodePageState extends State<QRCodePage> {
         return const Color(0xFF16875A);
       case 'duplicate':
         return const Color(0xFFBA790C);
+      case 'connection_error':
+        return const Color(0xFFB97713);
       default:
         return const Color(0xFFD64A56);
     }
@@ -91,6 +92,8 @@ class _QRCodePageState extends State<QRCodePage> {
         return Icons.event_busy_rounded;
       case 'verification_error':
         return Icons.error_outline_rounded;
+      case 'connection_error':
+        return Icons.wifi_off_rounded;
       default:
         return Icons.qr_code_2_rounded;
     }
@@ -100,12 +103,16 @@ class _QRCodePageState extends State<QRCodePage> {
     switch (lastResultStatus) {
       case 'present':
         if (ApiConfig.useRealApi) {
-          return _liveDirection == 'out' ? 'Time Out recorded' : 'Time In recorded';
+          return _liveDirection == 'out'
+              ? 'Time Out recorded'
+              : 'Time In recorded';
         }
         return 'Attendance recorded';
       case 'duplicate':
         if (ApiConfig.useRealApi) {
-          return _liveDirection == 'in' ? 'Already checked in' : 'Already checked out';
+          return _liveDirection == 'in'
+              ? 'Already checked in'
+              : 'Already checked out';
         }
         return 'Already checked in';
       case 'wrong_event':
@@ -114,6 +121,8 @@ class _QRCodePageState extends State<QRCodePage> {
         return 'Invalid QR pass';
       case 'verification_error':
         return 'Could not verify QR';
+      case 'connection_error':
+        return 'Connection interrupted';
       default:
         return lastScanSuccessful ? 'QR verified' : 'Scan not accepted';
     }
@@ -126,12 +135,12 @@ class _QRCodePageState extends State<QRCodePage> {
     boxShadow: _isDark
         ? null
         : [
-      const BoxShadow(
-        color: Color(0x0C15283E),
-        blurRadius: 22,
-        offset: Offset(0, 8),
-      ),
-    ],
+            const BoxShadow(
+              color: Color(0x0C15283E),
+              blurRadius: 22,
+              offset: Offset(0, 8),
+            ),
+          ],
   );
 
   // --------------------------------------------------------------
@@ -151,8 +160,11 @@ class _QRCodePageState extends State<QRCodePage> {
     if (!ApiConfig.useRealApi || !canScanAttendance) {
       return false;
     }
-    if (_liveLoadingEvents || _liveLoadingSessions || _liveError != null ||
-        _liveSessionError != null || _liveSelectedEvent == null) {
+    if (_liveLoadingEvents ||
+        _liveLoadingSessions ||
+        _liveError != null ||
+        _liveSessionError != null ||
+        _liveSelectedEvent == null) {
       return false;
     }
     final eventToken = '${_liveSelectedEvent?['checkin_token'] ?? ''}'.trim();
@@ -191,8 +203,11 @@ class _QRCodePageState extends State<QRCodePage> {
 
   static Uri _liveUri(String path, {Map<String, String>? query}) {
     final base = Uri.tryParse(ApiConfig.baseUrl.trim());
-    if (base == null || base.scheme != 'https' || base.host.isEmpty ||
-        base.userInfo.isNotEmpty || (base.path.isNotEmpty && base.path != '/')) {
+    if (base == null ||
+        base.scheme != 'https' ||
+        base.host.isEmpty ||
+        base.userInfo.isNotEmpty ||
+        (base.path.isNotEmpty && base.path != '/')) {
       throw StateError('The secure Laravel API URL is not configured.');
     }
     return base.replace(path: path, queryParameters: query, fragment: null);
@@ -230,8 +245,12 @@ class _QRCodePageState extends State<QRCodePage> {
     return 'Laravel could not complete this request (HTTP ${response.statusCode}).';
   }
 
-  Future<dynamic> _liveRequest(String method, String path,
-      {Object? body, Map<String, String>? query}) async {
+  Future<dynamic> _liveRequest(
+    String method,
+    String path, {
+    Object? body,
+    Map<String, String>? query,
+  }) async {
     final token = await authTokenStorage.readValidToken();
     if (token == null || token.trim().isEmpty) {
       throw StateError('Your scanner login expired. Please sign in again.');
@@ -245,10 +264,12 @@ class _QRCodePageState extends State<QRCodePage> {
     };
     final http.Response response;
     if (method == 'GET') {
-      response = await http.get(uri, headers: headers)
+      response = await http
+          .get(uri, headers: headers)
           .timeout(const Duration(seconds: 20));
     } else if (method == 'POST') {
-      response = await http.post(uri, headers: headers, body: jsonEncode(body))
+      response = await http
+          .post(uri, headers: headers, body: jsonEncode(body))
           .timeout(const Duration(seconds: 20));
     } else {
       throw StateError('Unsupported scanner request method.');
@@ -278,7 +299,10 @@ class _QRCodePageState extends State<QRCodePage> {
       return;
     }
     if (mounted) {
-      setState(() { _liveLoadingEvents = true; _liveError = null; });
+      setState(() {
+        _liveLoadingEvents = true;
+        _liveError = null;
+      });
     }
     try {
       final rows = _liveItems(await _liveRequest('GET', '/api/scanner/events'));
@@ -295,7 +319,9 @@ class _QRCodePageState extends State<QRCodePage> {
         _liveSessionId = null;
         _liveSessionError = null;
       });
-      final match = rows.where((row) => row['reference'] == currentRef).toList();
+      final match = rows
+          .where((row) => row['reference'] == currentRef)
+          .toList();
       if (match.isNotEmpty) {
         await _selectLiveEvent(match.first);
       }
@@ -314,7 +340,9 @@ class _QRCodePageState extends State<QRCodePage> {
 
   Future<void> _selectLiveEvent(Map<String, dynamic> event) async {
     final serial = ++_liveSelectionSerial;
-    try { await scannerController.stop(); } catch (_) {}
+    try {
+      await scannerController.stop();
+    } catch (_) {}
     if (!mounted) {
       return;
     }
@@ -334,14 +362,16 @@ class _QRCodePageState extends State<QRCodePage> {
     if (token.isEmpty) {
       setState(() {
         _liveLoadingSessions = false;
-        _liveSessionError = 'This event has no check-in token. An administrator '
+        _liveSessionError =
+            'This event has no check-in token. An administrator '
             'must generate its check-in poster in Laravel first.';
       });
       return;
     }
     try {
-      final payload = _liveMap(await _liveRequest(
-          'GET', '/api/checkin/${Uri.encodeComponent(token)}'));
+      final payload = _liveMap(
+        await _liveRequest('GET', '/api/checkin/${Uri.encodeComponent(token)}'),
+      );
       final sessions = _liveItems(payload['sessions']);
       if (!mounted || serial != _liveSelectionSerial) {
         return;
@@ -350,7 +380,8 @@ class _QRCodePageState extends State<QRCodePage> {
       setState(() {
         _liveSessions = sessions;
         _liveSessionId = openSessions.isEmpty
-            ? null : _liveInt(openSessions.first['id']);
+            ? null
+            : _liveInt(openSessions.first['id']);
         _liveLoadingSessions = false;
       });
       if (_canLiveScan) {
@@ -376,26 +407,36 @@ class _QRCodePageState extends State<QRCodePage> {
     if (savedUserRole.trim().toLowerCase() == 'admin') {
       if (mounted) {
         setState(() {
-          _liveHistoryError = 'Personal scan history is available to assigned Scanner accounts.';
+          _liveHistoryError =
+              'Personal scan history is available to assigned Scanner accounts.';
           _liveHistory = [];
         });
       }
       return;
     }
     if (mounted) {
-      setState(() { _liveLoadingHistory = true; _liveHistoryError = null; });
+      setState(() {
+        _liveLoadingHistory = true;
+        _liveHistoryError = null;
+      });
     }
     try {
       final query = <String, String>{};
       final selected = _liveText(_liveSelectedEvent?['reference']);
       if (selected.isNotEmpty) query['event_reference'] = selected;
-      final data = await _liveRequest('GET', '/api/scanner/history',
-          query: query.isEmpty ? null : query);
+      final data = await _liveRequest(
+        'GET',
+        '/api/scanner/history',
+        query: query.isEmpty ? null : query,
+      );
       final rows = _liveItems(data);
       if (!mounted || serial != _liveHistorySerial) {
         return;
       }
-      setState(() { _liveHistory = rows; _liveLoadingHistory = false; });
+      setState(() {
+        _liveHistory = rows;
+        _liveLoadingHistory = false;
+      });
     } catch (error) {
       if (!mounted || serial != _liveHistorySerial) {
         return;
@@ -409,12 +450,15 @@ class _QRCodePageState extends State<QRCodePage> {
   }
 
   Future<void> _loadLiveSummary() async {
-    if (!ApiConfig.useRealApi || !canScanAttendance ||
+    if (!ApiConfig.useRealApi ||
+        !canScanAttendance ||
         savedUserRole.trim().toLowerCase() == 'admin') {
       return;
     }
     try {
-      final result = _liveMap(await _liveRequest('GET', '/api/scanner/summary'));
+      final result = _liveMap(
+        await _liveRequest('GET', '/api/scanner/summary'),
+      );
       if (mounted) {
         setState(() => _liveSummary = result);
       }
@@ -454,39 +498,59 @@ class _QRCodePageState extends State<QRCodePage> {
       lastResultStatus = null;
       _liveScannedEventTitle = null;
     });
-    try { await scannerController.stop(); } catch (_) {}
+    try {
+      await scannerController.stop();
+    } catch (_) {}
     if (!mounted) {
       return;
     }
     try {
-      final payload = _liveMap(await _liveRequest(
-        'POST', '/api/checkin/${Uri.encodeComponent(checkinToken)}/scan',
-        body: {'qr_code': qr, 'session_id': sessionId, 'direction': direction},
-      ));
+      final payload = _liveMap(
+        await _liveRequest(
+          'POST',
+          '/api/checkin/${Uri.encodeComponent(checkinToken)}/scan',
+          body: {
+            'qr_code': qr,
+            'session_id': sessionId,
+            'direction': direction,
+          },
+        ),
+      );
       if (!mounted) {
         return;
       }
       final attendance = payload['attendance'];
       final attendanceMap = attendance is Map ? _liveMap(attendance) : null;
       final skipped = payload['skipped'];
-      final hasSkipped = skipped is Map ? skipped.isNotEmpty
+      final hasSkipped = skipped is Map
+          ? skipped.isNotEmpty
           : (skipped is List && skipped.isNotEmpty);
-      final successful = attendanceMap != null && !hasSkipped &&
-          (direction == 'in' ? attendanceMap['time_in'] != null
+      final successful =
+          attendanceMap != null &&
+          !hasSkipped &&
+          (direction == 'in'
+              ? attendanceMap['time_in'] != null
               : attendanceMap['time_out'] != null);
       final registration = payload['registration'];
       final student = payload['student'];
       final identity = registration is Map ? registration : student;
       final name = identity is Map ? _liveText(identity['participant']) : '';
-      final message = _liveText(payload['message'],
-          successful ? 'Attendance saved in Laravel.' : 'Scan was not recorded.');
+      final message = _liveText(
+        payload['message'],
+        successful ? 'Attendance saved in Laravel.' : 'Scan was not recorded.',
+      );
       final scannedTimeValue = attendanceMap == null
           ? null
           : attendanceMap[direction == 'in' ? 'time_in' : 'time_out'];
-      final duplicate = !successful && message.toLowerCase().contains('already');
+      final duplicate =
+          !successful && message.toLowerCase().contains('already');
       _liveScannedEventTitle = _liveText(event['title']);
       _showScanResult(
-        status: successful ? 'present' : duplicate ? 'duplicate' : 'verification_error',
+        status: successful
+            ? 'present'
+            : duplicate
+            ? 'duplicate'
+            : 'verification_error',
         message: message,
         success: successful,
         studentName: name.isEmpty ? null : name,
@@ -502,11 +566,25 @@ class _QRCodePageState extends State<QRCodePage> {
       }
       final message = _friendlyLiveError(error);
       final isDuplicate = message.toLowerCase().contains('already');
-      final isWrongEvent = message.toLowerCase().contains('not registered') ||
+      final isWrongEvent =
+          message.toLowerCase().contains('not registered') ||
           message.toLowerCase().contains('does not belong');
+      // A transport failure never confirms or rejects attendance.
+      // Keep the scan paused until the operator checks the server record.
+      final isConnectionError =
+          error is! StateError && error is! FormatException;
       _showScanResult(
-        status: isDuplicate ? 'duplicate' : isWrongEvent ? 'wrong_event' : 'verification_error',
-        message: message,
+        status: isConnectionError
+            ? 'connection_error'
+            : isDuplicate
+            ? 'duplicate'
+            : isWrongEvent
+            ? 'wrong_event'
+            : 'verification_error',
+        message: isConnectionError
+            ? 'Could not confirm the scan with Laravel. Attendance status is unknown. '
+                  'Check server scan history before trying again to avoid duplicates.'
+            : message,
       );
     }
   }
@@ -570,9 +648,7 @@ class _QRCodePageState extends State<QRCodePage> {
       await _handleLiveQrCode(rawValue);
       return;
     }
-    if (processingScan ||
-        !canScanAttendance ||
-        selectedEvent == null) {
+    if (processingScan || !canScanAttendance || selectedEvent == null) {
       return;
     }
 
@@ -606,14 +682,14 @@ class _QRCodePageState extends State<QRCodePage> {
       }
 
       final registeredForEvent = registeredEvents.any(
-            (entry) => eventKey(entry) == key,
+        (entry) => eventKey(entry) == key,
       );
       final tokenMatchesEvent = registeredForEvent && qrTokens[key] == token;
 
       if (!tokenMatchesEvent) {
         final belongsToAnotherEvent = qrTokens.entries.any(
-              (entry) =>
-          entry.key != key &&
+          (entry) =>
+              entry.key != key &&
               entry.value == token &&
               registeredEvents.any((item) => eventKey(item) == entry.key),
         );
@@ -715,7 +791,11 @@ class _QRCodePageState extends State<QRCodePage> {
       _liveScannedEventTitle = null;
     });
     try {
-      if (!ApiConfig.useRealApi || _canLiveScan) {
+      // Never start the camera before an event (and live session) is ready.
+      if ((ApiConfig.useRealApi && _canLiveScan) ||
+          (!ApiConfig.useRealApi &&
+              canScanAttendance &&
+              selectedEvent != null)) {
         await scannerController.start();
       }
     } catch (_) {
@@ -731,7 +811,9 @@ class _QRCodePageState extends State<QRCodePage> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Flashlight is unavailable on this camera.')),
+        const SnackBar(
+          content: Text('Flashlight is unavailable on this camera.'),
+        ),
       );
     }
   }
@@ -775,9 +857,7 @@ class _QRCodePageState extends State<QRCodePage> {
         height: 30,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _isDark
-              ? const Color(0xFF293F60)
-              : const Color(0xFFEAF1FA),
+          color: _isDark ? const Color(0xFF293F60) : const Color(0xFFEAF1FA),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
@@ -801,10 +881,7 @@ class _QRCodePageState extends State<QRCodePage> {
         ),
       ),
       if (hint != null)
-        Text(
-          hint,
-          style: TextStyle(color: _muted, fontSize: 11),
-        ),
+        Text(hint, style: TextStyle(color: _muted, fontSize: 11)),
     ],
   );
 
@@ -851,8 +928,9 @@ class _QRCodePageState extends State<QRCodePage> {
 
   Widget _hero() {
     final totalPresent = scanHistory.where((r) => r.status == 'Present').length;
-    final totalDuplicates =
-        scanHistory.where((r) => r.status == 'Duplicate').length;
+    final totalDuplicates = scanHistory
+        .where((r) => r.status == 'Duplicate')
+        .length;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -895,7 +973,10 @@ class _QRCodePageState extends State<QRCodePage> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFD46C),
                   borderRadius: BorderRadius.circular(20),
@@ -961,213 +1042,270 @@ class _QRCodePageState extends State<QRCodePage> {
   Widget _eventPicker() => ApiConfig.useRealApi
       ? _liveEventPicker()
       : Container(
-    padding: const EdgeInsets.all(17),
-    decoration: _panelDecoration(),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionHeader('01', 'Choose an event', hint: 'Required'),
-        const SizedBox(height: 6),
-        Text(
-          'Select the event before scanning a student pass.',
-          style: TextStyle(color: _muted, fontSize: 12.5),
-        ),
-        const SizedBox(height: 15),
-        DropdownButtonFormField<Event>(
-          key: ValueKey(selectedEvent),
-          initialValue: selectedEvent,
-          isExpanded: true,
-          hint: const Text('Select campus event'),
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.event_available_outlined),
-            filled: true,
-            fillColor: _isDark
-                ? const Color(0xFF1E324E)
-                : const Color(0xFFF6F8FC),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 15,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide(color: _border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide(color: _border),
-            ),
-          ),
-          items: eventList
-              .map(
-                (event) => DropdownMenuItem<Event>(
-              value: event,
-              child: Text(
-                event.title,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          )
-              .toList(),
-          onChanged: isVerifyingScan
-              ? null
-              : (value) {
-            if (value == null) return;
-            setState(() => selectedEvent = value);
-            _scanAgain();
-          },
-        ),
-        if (selectedEvent != null) ...[
-          const SizedBox(height: 12),
-          Row(
+          padding: const EdgeInsets.all(17),
+          decoration: _panelDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.check_circle_rounded,
-                color: Color(0xFF19966B),
-                size: 17,
+              _sectionHeader('01', 'Choose an event', hint: 'Required'),
+              const SizedBox(height: 6),
+              Text(
+                'Select the event before scanning a student pass.',
+                style: TextStyle(color: _muted, fontSize: 12.5),
               ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  '${selectedEvent!.date}  ·  ${selectedEvent!.venue}',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: _muted, fontSize: 11.5),
+              const SizedBox(height: 15),
+              DropdownButtonFormField<Event>(
+                key: ValueKey(selectedEvent),
+                initialValue: selectedEvent,
+                isExpanded: true,
+                hint: const Text('Select campus event'),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.event_available_outlined),
+                  filled: true,
+                  fillColor: _isDark
+                      ? const Color(0xFF1E324E)
+                      : const Color(0xFFF6F8FC),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 15,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide(color: _border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide(color: _border),
+                  ),
                 ),
+                items: eventList
+                    .map(
+                      (event) => DropdownMenuItem<Event>(
+                        value: event,
+                        child: Text(
+                          event.title,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: isVerifyingScan
+                    ? null
+                    : (value) {
+                        if (value == null) return;
+                        setState(() => selectedEvent = value);
+                        _scanAgain();
+                      },
               ),
+              if (selectedEvent != null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xFF19966B),
+                      size: 17,
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        '${selectedEvent!.date}  ·  ${selectedEvent!.venue}',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: _muted, fontSize: 11.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
-        ],
-      ],
-    ),
-  );
+        );
 
   Widget _liveEventPicker() {
     final ref = _liveText(_liveSelectedEvent?['reference']);
     return Container(
       padding: const EdgeInsets.all(17),
       decoration: _panelDecoration(),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: _sectionHeader('01', 'Assigned event', hint: 'Laravel')),
-          IconButton(
-            tooltip: 'Refresh assigned events',
-            onPressed: _liveLoadingEvents || isVerifyingScan ? null : _loadLiveEvents,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ]),
-        const SizedBox(height: 7),
-        Text('Only approved events assigned by Laravel can be scanned.',
-            style: TextStyle(color: _muted, fontSize: 12.5)),
-        if (_liveLoadingEvents) const Padding(
-          padding: EdgeInsets.symmetric(vertical: 14),
-          child: LinearProgressIndicator(),
-        ),
-        if (_liveError != null) ...[
-          const SizedBox(height: 12),
-          Text(_liveError!, style: const TextStyle(color: Color(0xFFD64A56))),
-        ],
-        if (!_liveLoadingEvents && _liveError == null && _liveEvents.isEmpty) ...[
-          const SizedBox(height: 12),
-          Text('No approved events assigned to this scanner. '
-              'Ask an administrator to assign an event and prepare its sessions.',
-              style: TextStyle(color: _muted, fontSize: 12)),
-        ],
-        const SizedBox(height: 13),
-        DropdownButtonFormField<String>(
-          key: ValueKey('live-event-picker-$ref'),
-          initialValue: ref.isEmpty ? null : ref,
-          isExpanded: true,
-          hint: const Text('Choose an assigned event'),
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.event_available_outlined),
-            filled: true,
-            fillColor: _isDark ? const Color(0xFF1E324E) : const Color(0xFFF6F8FC),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
-          ),
-          items: _liveEvents.map((e) => DropdownMenuItem<String>(
-            value: _liveText(e['reference']),
-            child: Text(_liveText(e['title'], 'Untitled event'),
-                overflow: TextOverflow.ellipsis),
-          )).toList(),
-          onChanged: _liveLoadingEvents || isVerifyingScan
-              ? null
-              : (selected) {
-            if (selected == null) return;
-            final matches = _liveEvents.where(
-                    (e) => _liveText(e['reference']) == selected).toList();
-            if (matches.isNotEmpty) _selectLiveEvent(matches.first);
-          },
-        ),
-        if (_liveSelectedEvent != null) ...[
-          const SizedBox(height: 11),
-          Text('${_liveText(_liveSelectedEvent?['event_date'], 'Date unavailable')} '
-              ' • ${_liveText(_liveSelectedEvent?['venue'], 'Venue unavailable')}',
-              style: TextStyle(color: _muted, fontSize: 12)),
-          if (_liveLoadingSessions) const Padding(
-            padding: EdgeInsets.symmetric(vertical: 13),
-            child: LinearProgressIndicator(),
-          ),
-          if (_liveSessionError != null) Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Text(_liveSessionError!,
-                style: const TextStyle(color: Color(0xFFD64A56))),
-          ),
-          if (!_liveLoadingSessions && _liveSessionError == null) ...[
-            const SizedBox(height: 16),
-            _sectionHeader('02', 'Attendance session', hint: 'Required'),
-            const SizedBox(height: 9),
-            if (_liveSessions.isEmpty) Text(
-                'This event has no attendance sessions. Ask the admin to create sessions.',
-                style: TextStyle(color: _muted, fontSize: 12)),
-            if (_liveSessions.isNotEmpty)
-              DropdownButtonFormField<int>(
-                key: ValueKey('live-session-$_liveSessionId'),
-                initialValue: _liveSessionId,
-                isExpanded: true,
-                hint: const Text('Choose an open session'),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.schedule_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
-                ),
-                items: _liveSessions.map((s) => DropdownMenuItem<int>(
-                  value: _liveInt(s['id']),
-                  enabled: s['open'] == true,
-                  child: Text(
-                    '${_liveText(s['label'], 'Session')} '
-                        '(${_liveText(s['session_date'])})'
-                        '${s['open'] == true ? ' • OPEN' : ' • CLOSED'}',
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                )).toList(),
-                onChanged: isVerifyingScan ? null : (value) {
-                  setState(() => _liveSessionId = value);
-                  if (_canLiveScan) _scanAgain();
-                },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _sectionHeader('01', 'Assigned event', hint: 'Laravel'),
               ),
-            if (_liveSessions.isNotEmpty && _liveSessionId == null) Padding(
-              padding: const EdgeInsets.only(top: 7),
-              child: Text('No open session is selected. Closed sessions cannot accept scans.',
-                  style: TextStyle(color: _muted, fontSize: 12)),
+              IconButton(
+                tooltip: 'Refresh assigned events',
+                onPressed: _liveLoadingEvents || isVerifyingScan
+                    ? null
+                    : _loadLiveEvents,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Text(
+            'Only approved events assigned by Laravel can be scanned.',
+            style: TextStyle(color: _muted, fontSize: 12.5),
+          ),
+          if (_liveLoadingEvents)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 14),
+              child: LinearProgressIndicator(),
             ),
-            const SizedBox(height: 16),
-            _sectionHeader('03', 'Attendance action', hint: 'Choose one'),
-            const SizedBox(height: 9),
-            Wrap(spacing: 10, children: [
-              ChoiceChip(label: const Text('Time In'),
-                  selected: _liveDirection == 'in',
-                  onSelected: isVerifyingScan ? null : (_) {
-                    setState(() => _liveDirection = 'in');
-                    _scanAgain();
-                  }),
-              ChoiceChip(label: const Text('Time Out'),
-                  selected: _liveDirection == 'out',
-                  onSelected: isVerifyingScan ? null : (_) {
-                    setState(() => _liveDirection = 'out');
-                    _scanAgain();
-                  }),
-            ]),
+          if (_liveError != null) ...[
+            const SizedBox(height: 12),
+            Text(_liveError!, style: const TextStyle(color: Color(0xFFD64A56))),
+          ],
+          if (!_liveLoadingEvents &&
+              _liveError == null &&
+              _liveEvents.isEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              'No approved events assigned to this scanner. '
+              'Ask an administrator to assign an event and prepare its sessions.',
+              style: TextStyle(color: _muted, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 13),
+          DropdownButtonFormField<String>(
+            key: ValueKey('live-event-picker-$ref'),
+            initialValue: ref.isEmpty ? null : ref,
+            isExpanded: true,
+            hint: const Text('Choose an assigned event'),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.event_available_outlined),
+              filled: true,
+              fillColor: _isDark
+                  ? const Color(0xFF1E324E)
+                  : const Color(0xFFF6F8FC),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+            items: _liveEvents
+                .map(
+                  (e) => DropdownMenuItem<String>(
+                    value: _liveText(e['reference']),
+                    child: Text(
+                      _liveText(e['title'], 'Untitled event'),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: _liveLoadingEvents || isVerifyingScan
+                ? null
+                : (selected) {
+                    if (selected == null) return;
+                    final matches = _liveEvents
+                        .where((e) => _liveText(e['reference']) == selected)
+                        .toList();
+                    if (matches.isNotEmpty) _selectLiveEvent(matches.first);
+                  },
+          ),
+          if (_liveSelectedEvent != null) ...[
+            const SizedBox(height: 11),
+            Text(
+              '${_liveText(_liveSelectedEvent?['event_date'], 'Date unavailable')} '
+              ' • ${_liveText(_liveSelectedEvent?['venue'], 'Venue unavailable')}',
+              style: TextStyle(color: _muted, fontSize: 12),
+            ),
+            if (_liveLoadingSessions)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 13),
+                child: LinearProgressIndicator(),
+              ),
+            if (_liveSessionError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(
+                  _liveSessionError!,
+                  style: const TextStyle(color: Color(0xFFD64A56)),
+                ),
+              ),
+            if (!_liveLoadingSessions && _liveSessionError == null) ...[
+              const SizedBox(height: 16),
+              _sectionHeader('02', 'Attendance session', hint: 'Required'),
+              const SizedBox(height: 9),
+              if (_liveSessions.isEmpty)
+                Text(
+                  'This event has no attendance sessions. Ask the admin to create sessions.',
+                  style: TextStyle(color: _muted, fontSize: 12),
+                ),
+              if (_liveSessions.isNotEmpty)
+                DropdownButtonFormField<int>(
+                  key: ValueKey('live-session-$_liveSessionId'),
+                  initialValue: _liveSessionId,
+                  isExpanded: true,
+                  hint: const Text('Choose an open session'),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.schedule_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                  items: _liveSessions
+                      .map(
+                        (s) => DropdownMenuItem<int>(
+                          value: _liveInt(s['id']),
+                          enabled: s['open'] == true,
+                          child: Text(
+                            '${_liveText(s['label'], 'Session')} '
+                            '(${_liveText(s['session_date'])})'
+                            '${s['open'] == true ? ' • OPEN' : ' • CLOSED'}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: isVerifyingScan
+                      ? null
+                      : (value) {
+                          setState(() => _liveSessionId = value);
+                          if (_canLiveScan) _scanAgain();
+                        },
+                ),
+              if (_liveSessions.isNotEmpty && _liveSessionId == null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 7),
+                  child: Text(
+                    'No open session is selected. Closed sessions cannot accept scans.',
+                    style: TextStyle(color: _muted, fontSize: 12),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              _sectionHeader('03', 'Attendance action', hint: 'Choose one'),
+              const SizedBox(height: 9),
+              Wrap(
+                spacing: 10,
+                children: [
+                  ChoiceChip(
+                    label: const Text('Time In'),
+                    selected: _liveDirection == 'in',
+                    onSelected: isVerifyingScan
+                        ? null
+                        : (_) {
+                            setState(() => _liveDirection = 'in');
+                            _scanAgain();
+                          },
+                  ),
+                  ChoiceChip(
+                    label: const Text('Time Out'),
+                    selected: _liveDirection == 'out',
+                    onSelected: isVerifyingScan
+                        ? null
+                        : (_) {
+                            setState(() => _liveDirection = 'out');
+                            _scanAgain();
+                          },
+                  ),
+                ],
+              ),
+            ],
           ],
         ],
-      ]),
+      ),
     );
   }
 
@@ -1205,7 +1343,9 @@ class _QRCodePageState extends State<QRCodePage> {
                   controller: scannerController,
                   onDetect: (capture) {
                     if (processingScan ||
-                        (ApiConfig.useRealApi ? !_canLiveScan : selectedEvent == null)) {
+                        (ApiConfig.useRealApi
+                            ? !_canLiveScan
+                            : selectedEvent == null)) {
                       return;
                     }
                     if (capture.barcodes.isEmpty) return;
@@ -1247,7 +1387,9 @@ class _QRCodePageState extends State<QRCodePage> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        (ApiConfig.useRealApi ? !_canLiveScan : selectedEvent == null)
+                        (ApiConfig.useRealApi
+                                ? !_canLiveScan
+                                : selectedEvent == null)
                             ? 'SELECT EVENT AND OPEN SESSION'
                             : lastMessage != null
                             ? 'SCANNER PAUSED'
@@ -1262,8 +1404,11 @@ class _QRCodePageState extends State<QRCodePage> {
                     ),
                   ),
                 ),
-                if ((ApiConfig.useRealApi ? !_canLiveScan : selectedEvent == null) ||
-                    lastMessage != null || isVerifyingScan)
+                if ((ApiConfig.useRealApi
+                        ? !_canLiveScan
+                        : selectedEvent == null) ||
+                    lastMessage != null ||
+                    isVerifyingScan)
                   Positioned.fill(
                     child: IgnorePointer(
                       child: ColoredBox(
@@ -1271,49 +1416,49 @@ class _QRCodePageState extends State<QRCodePage> {
                         child: Center(
                           child: isVerifyingScan
                               ? Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(
-                                color: Color(0xFFFFD46C),
-                              ),
-                              SizedBox(height: 14),
-                              Text(
-                                ApiConfig.useRealApi
-                                    ? 'Verifying with Laravel...'
-                                    : 'Verifying demo QR...',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          )
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircularProgressIndicator(
+                                      color: Color(0xFFFFD46C),
+                                    ),
+                                    SizedBox(height: 14),
+                                    Text(
+                                      ApiConfig.useRealApi
+                                          ? 'Verifying with Laravel...'
+                                          : 'Verifying demo QR...',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                )
                               : Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                lastMessage == null
-                                    ? Icons.event_note_rounded
-                                    : Icons.pause_circle_outline_rounded,
-                                color: const Color(0xFFFFD46C),
-                                size: 42,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                lastMessage == null
-                                    ? (ApiConfig.useRealApi
-                                    ? 'Select an event and open session above'
-                                    : 'Choose an event above')
-                                    : 'Review the result below',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      lastMessage == null
+                                          ? Icons.event_note_rounded
+                                          : Icons.pause_circle_outline_rounded,
+                                      color: const Color(0xFFFFD46C),
+                                      size: 42,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      lastMessage == null
+                                          ? (ApiConfig.useRealApi
+                                                ? 'Select an event and open session above'
+                                                : 'Choose an event above')
+                                          : 'Review the result below',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                     ),
@@ -1353,7 +1498,8 @@ class _QRCodePageState extends State<QRCodePage> {
                   : lastMessage != null
                   ? Icons.pause_circle_outline_rounded
                   : Icons.radio_button_checked_rounded,
-              color: (ApiConfig.useRealApi ? !_canLiveScan : selectedEvent == null)
+              color:
+                  (ApiConfig.useRealApi ? !_canLiveScan : selectedEvent == null)
                   ? _muted
                   : lastMessage != null
                   ? const Color(0xFFBA790C)
@@ -1365,19 +1511,15 @@ class _QRCodePageState extends State<QRCodePage> {
               child: Text(
                 (ApiConfig.useRealApi ? !_canLiveScan : selectedEvent == null)
                     ? (ApiConfig.useRealApi
-                    ? 'Select an assigned event and OPEN session before scanning.'
-                    : 'Camera is ready. Select an event to enable verification.')
+                          ? 'Select an assigned event and OPEN session before scanning.'
+                          : 'Camera is ready. Select an event to enable verification.')
                     : lastMessage != null
                     ? 'Scanning paused. Use the button below to continue.'
                     : (ApiConfig.useRealApi
-                    ? 'Scanning ${_liveText(_liveSelectedEvent?['title'])} • '
-                    '${_liveDirection == 'in' ? 'Time In' : 'Time Out'}.'
-                    : 'Scanning ${selectedEvent!.title}. Hold the QR code steady.'),
-                style: TextStyle(
-                  color: _muted,
-                  fontSize: 12,
-                  height: 1.4,
-                ),
+                          ? 'Scanning ${_liveText(_liveSelectedEvent?['title'])} • '
+                                '${_liveDirection == 'in' ? 'Time In' : 'Time Out'}.'
+                          : 'Scanning ${selectedEvent!.title}. Hold the QR code steady.'),
+                style: TextStyle(color: _muted, fontSize: 12, height: 1.4),
               ),
             ),
           ],
@@ -1420,7 +1562,11 @@ class _QRCodePageState extends State<QRCodePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _eyebrow(ApiConfig.useRealApi ? 'Laravel verification result' : 'Demo verification result'),
+                    _eyebrow(
+                      ApiConfig.useRealApi
+                          ? 'Laravel verification result'
+                          : 'Demo verification result',
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       _resultTitle,
@@ -1444,13 +1590,29 @@ class _QRCodePageState extends State<QRCodePage> {
             lastMessage!,
             style: TextStyle(color: _muted, fontSize: 12.5, height: 1.5),
           ),
+          if (lastResultStatus == 'connection_error') ...[
+            const SizedBox(height: 10),
+            Text(
+              'Do not assume the student is absent or present. '
+              'A request can reach Laravel even if its reply is lost.',
+              style: TextStyle(
+                color: _ink,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           if (lastScannedEvent != null ||
               (ApiConfig.useRealApi && _liveScannedEventTitle != null)) ...[
             const SizedBox(height: 12),
             Divider(color: color.withValues(alpha: 0.2)),
             const SizedBox(height: 4),
-            _resultDetail(Icons.event_outlined,
-                ApiConfig.useRealApi ? _liveScannedEventTitle! : lastScannedEvent!.title),
+            _resultDetail(
+              Icons.event_outlined,
+              ApiConfig.useRealApi
+                  ? _liveScannedEventTitle!
+                  : lastScannedEvent!.title,
+            ),
             if (lastScannedStudent != null && lastScannedStudent!.isNotEmpty)
               _resultDetail(Icons.person_outline, lastScannedStudent!),
             if (lastCheckInTime != null && lastCheckInTime!.isNotEmpty)
@@ -1470,9 +1632,13 @@ class _QRCodePageState extends State<QRCodePage> {
                 ),
               ),
               icon: const Icon(Icons.qr_code_scanner_rounded),
-              label: Text(isSuccess || lastResultStatus == 'duplicate'
-                  ? 'Scan another QR'
-                  : 'Try scanning again'),
+              label: Text(
+                lastResultStatus == 'connection_error'
+                    ? 'Resume scanner after checking history'
+                    : isSuccess || lastResultStatus == 'duplicate'
+                    ? 'Scan another QR'
+                    : 'Try scanning again',
+              ),
             ),
           ),
         ],
@@ -1487,10 +1653,7 @@ class _QRCodePageState extends State<QRCodePage> {
         Icon(icon, color: _muted, size: 16),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            value,
-            style: TextStyle(color: _ink, fontSize: 12.5),
-          ),
+          child: Text(value, style: TextStyle(color: _ink, fontSize: 12.5)),
         ),
       ],
     ),
@@ -1498,14 +1661,20 @@ class _QRCodePageState extends State<QRCodePage> {
 
   Widget _historyPanel() {
     if (ApiConfig.useRealApi) return _liveHistoryPanel();
-    final visible = _showAllHistory ? scanHistory : scanHistory.take(4).toList();
+    final visible = _showAllHistory
+        ? scanHistory
+        : scanHistory.take(4).toList();
     return Container(
       decoration: _panelDecoration(),
       padding: const EdgeInsets.all(17),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionHeader('03', 'Recent scans', hint: '${scanHistory.length} total'),
+          _sectionHeader(
+            '03',
+            'Recent scans',
+            hint: '${scanHistory.length} total',
+          ),
           const SizedBox(height: 14),
           if (scanHistory.isEmpty)
             Container(
@@ -1519,7 +1688,11 @@ class _QRCodePageState extends State<QRCodePage> {
               ),
               child: Column(
                 children: [
-                  Icon(Icons.history_toggle_off_rounded, color: _muted, size: 32),
+                  Icon(
+                    Icons.history_toggle_off_rounded,
+                    color: _muted,
+                    size: 32,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'No scans yet',
@@ -1539,10 +1712,13 @@ class _QRCodePageState extends State<QRCodePage> {
           if (scanHistory.length > 4) ...[
             const SizedBox(height: 3),
             TextButton.icon(
-              onPressed: () => setState(() => _showAllHistory = !_showAllHistory),
-              icon: Icon(_showAllHistory
-                  ? Icons.keyboard_arrow_up_rounded
-                  : Icons.keyboard_arrow_down_rounded),
+              onPressed: () =>
+                  setState(() => _showAllHistory = !_showAllHistory),
+              icon: Icon(
+                _showAllHistory
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+              ),
               label: Text(_showAllHistory ? 'Show fewer' : 'View all scans'),
             ),
           ],
@@ -1556,39 +1732,66 @@ class _QRCodePageState extends State<QRCodePage> {
     return Container(
       decoration: _panelDecoration(),
       padding: const EdgeInsets.all(17),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: _sectionHeader('04', 'Recent server scans',
-              hint: '${_liveHistory.length} loaded')),
-          IconButton(
-            tooltip: 'Refresh recent scans',
-            onPressed: _liveLoadingHistory ? null : _loadLiveHistory,
-            icon: const Icon(Icons.refresh_rounded),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _sectionHeader(
+                  '04',
+                  'Recent server scans',
+                  hint: '${_liveHistory.length} loaded',
+                ),
+              ),
+              IconButton(
+                tooltip: 'Refresh recent scans',
+                onPressed: _liveLoadingHistory ? null : _loadLiveHistory,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
           ),
-        ]),
-        if (_liveLoadingHistory) const LinearProgressIndicator(),
-        if (_liveHistoryError != null) Padding(
-          padding: const EdgeInsets.only(top: 9),
-          child: Text(_liveHistoryError!, style: TextStyle(color: _muted, fontSize: 12)),
-        ),
-        if (!_liveLoadingHistory && _liveHistory.isEmpty && _liveHistoryError == null)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Center(child: Text('No server-recorded scans for this selection.',
-                style: TextStyle(color: _muted))),
-          ),
-        const SizedBox(height: 7),
-        ...rows.map(_liveHistoryRow),
-        if (_liveHistory.length > 4) Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: () => setState(() => _showAllHistory = !_showAllHistory),
-            icon: Icon(_showAllHistory
-                ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded),
-            label: Text(_showAllHistory ? 'Show fewer' : 'View loaded scans'),
-          ),
-        ),
-      ]),
+          if (_liveLoadingHistory) const LinearProgressIndicator(),
+          if (_liveHistoryError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 9),
+              child: Text(
+                _liveHistoryError!,
+                style: TextStyle(color: _muted, fontSize: 12),
+              ),
+            ),
+          if (!_liveLoadingHistory &&
+              _liveHistory.isEmpty &&
+              _liveHistoryError == null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  'No server-recorded scans for this selection.',
+                  style: TextStyle(color: _muted),
+                ),
+              ),
+            ),
+          const SizedBox(height: 7),
+          ...rows.map(_liveHistoryRow),
+          if (_liveHistory.length > 4)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () =>
+                    setState(() => _showAllHistory = !_showAllHistory),
+                icon: Icon(
+                  _showAllHistory
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                ),
+                label: Text(
+                  _showAllHistory ? 'Show fewer' : 'View loaded scans',
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -1604,20 +1807,33 @@ class _QRCodePageState extends State<QRCodePage> {
     final time = DateTime.tryParse(_liveText(record['recorded_at']))?.toLocal();
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Row(children: [
-        const Icon(Icons.verified_outlined, color: Color(0xFF16875A)),
-        const SizedBox(width: 11),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: _ink, fontWeight: FontWeight.w800)),
-            Text('${_liveText(session['label'], 'Event session')} • $status',
-                style: TextStyle(color: _muted, fontSize: 11.5)),
-          ],
-        )),
-        Text(time == null ? '—' : formatCheckInTime(time),
-            style: TextStyle(color: _muted, fontSize: 11.5)),
-      ]),
+      child: Row(
+        children: [
+          const Icon(Icons.verified_outlined, color: Color(0xFF16875A)),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  '${_liveText(session['label'], 'Event session')} • $status',
+                  style: TextStyle(color: _muted, fontSize: 11.5),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            time == null ? '—' : formatCheckInTime(time),
+            style: TextStyle(color: _muted, fontSize: 11.5),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1689,9 +1905,7 @@ class _QRCodePageState extends State<QRCodePage> {
   Widget _notice() => Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: _isDark
-          ? const Color(0xFF253248)
-          : const Color(0xFFEDF1F7),
+      color: _isDark ? const Color(0xFF253248) : const Color(0xFFEDF1F7),
       borderRadius: BorderRadius.circular(17),
     ),
     child: Row(
@@ -1703,11 +1917,11 @@ class _QRCodePageState extends State<QRCodePage> {
           child: Text(
             ApiConfig.useRealApi
                 ? 'LIVE LARAVEL MODE • The server checks scanner assignment, '
-                'event registration, session windows, and duplicate scans. '
-                'Only a successful server response counts as attendance.'
+                      'event registration, session windows, and duplicate scans. '
+                      'Only a successful server response counts as attendance.'
                 : 'LOCAL DEMONSTRATION ONLY  •  QR checks and attendance '
-                'history are stored in the app session, not in Laravel. '
-                'Official verification requires server-side authorization.',
+                      'history are stored in the app session, not in Laravel. '
+                      'Official verification requires server-side authorization.',
             style: TextStyle(color: _muted, fontSize: 11.5, height: 1.5),
           ),
         ),
@@ -1728,9 +1942,9 @@ class _QRCodePageState extends State<QRCodePage> {
               title: 'Scanner access unavailable',
               message: ApiConfig.useRealApi
                   ? 'Sign in with an active Scanner account assigned by Laravel. '
-                  'Student accounts cannot record attendance.'
+                        'Student accounts cannot record attendance.'
                   : 'This scanner view is for authorized event personnel. '
-                  'Demo role selection is not real authentication.',
+                        'Demo role selection is not real authentication.',
             ),
           ),
         ),
