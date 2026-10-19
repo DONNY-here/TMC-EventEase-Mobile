@@ -1132,6 +1132,27 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView> {
             ),
           ),
         ),
+        // Official attendance records (read only). Kept separate from QR tokens.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 3, 14, 7),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const _LaravelStudentAttendancePage(),
+                ),
+              ),
+              icon: const Icon(Icons.fact_check_outlined),
+              label: const Text('View my attendance records'),
+              style: FilledButton.styleFrom(
+                backgroundColor: _navy,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ),
+        ),
         SizedBox(height: 53,
           child: ListView(scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -1336,6 +1357,616 @@ class _LaravelStudentAttendanceQrPageState
               textAlign: TextAlign.center),
         ]),
       )),
+    );
+  }
+}
+
+
+// ================================================================
+// TMC EVENTEASE — OFFICIAL STUDENT ATTENDANCE (READ-ONLY)
+// /api/registrations/my  = registrations and their attendance rollup
+// /api/my/attendance     = compulsory attendance obligations/sessions
+// These are separate resources. Never infer attendance from a QR pass.
+// ================================================================
+class _LaravelStudentAttendancePage extends StatefulWidget {
+  const _LaravelStudentAttendancePage();
+
+  @override
+  State<_LaravelStudentAttendancePage> createState() =>
+      _LaravelStudentAttendancePageState();
+}
+
+class _LaravelStudentAttendancePageState
+    extends State<_LaravelStudentAttendancePage> {
+  static const _navy = Color(0xFF102A4C);
+  static const _blue = Color(0xFF215B99);
+  static const _gold = Color(0xFFFFCB4D);
+
+  bool _loading = true;
+  String _selectedTab = 'Registered events';
+  String? _authError;
+  String? _registrationError;
+  String? _obligationError;
+  List<Map<String, dynamic>> _registrations = [];
+  List<Map<String, dynamic>> _obligations = [];
+  final Set<String> _expandedRegistrations = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _refresh();
+    });
+  }
+
+  String _value(Map<String, dynamic> record, String field,
+      [String fallback = '']) {
+    final value = record[field];
+    return value == null ? fallback : value.toString().trim();
+  }
+
+  Map<String, String> _headers(String token) => {
+    'Accept': 'application/json',
+    'Authorization': 'Bearer $token',
+    'ngrok-skip-browser-warning': 'true',
+  };
+
+  String _errorFor(http.Response response, String resource) {
+    if (response.statusCode == 401) {
+      return 'Your session expired. Please sign in again.';
+    }
+    if (response.statusCode == 403) {
+      return 'Laravel denied access to $resource. Check the student account permissions.';
+    }
+    if (response.statusCode == 404) {
+      return 'The $resource endpoint was not found on Laravel.';
+    }
+    try {
+      final json = jsonDecode(response.body);
+      if (json is Map && json['message'] is String) {
+        return json['message'] as String;
+      }
+    } catch (_) {
+      // Laravel may return an HTML error; never display server HTML.
+    }
+    return 'Unable to load $resource (HTTP ${response.statusCode}).';
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchRegistrations(String token) async {
+    final result = <Map<String, dynamic>>[];
+    var page = 1;
+    var lastPage = 1;
+    do {
+      final response = await http.get(
+        _LaravelMyPassesViewState._endpoint(
+          '/api/registrations/my',
+          query: {'page': '$page'},
+        ),
+        headers: _headers(token),
+      ).timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) {
+        throw StateError(_errorFor(response, 'registration history'));
+      }
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map || decoded['data'] is! List) {
+        throw const FormatException('Invalid registration history response.');
+      }
+      for (final item in decoded['data'] as List) {
+        if (item is! Map) {
+          throw const FormatException('Invalid registration item.');
+        }
+        result.add(Map<String, dynamic>.from(item));
+      }
+      lastPage = int.tryParse('${decoded['last_page'] ?? 1}') ?? 1;
+      if (lastPage > 50) {
+        throw StateError('Registration history is too large for this view. '
+            'Contact the developer about attendance pagination.');
+      }
+      page++;
+    } while (page <= lastPage);
+    return result;
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchObligations(String token) async {
+    final response = await http.get(
+      _LaravelMyPassesViewState._endpoint('/api/my/attendance'),
+      headers: _headers(token),
+    ).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) {
+      throw StateError(_errorFor(response, 'compulsory attendance'));
+    }
+    final decoded = jsonDecode(response.body);
+    final rows = decoded is List
+        ? decoded
+        : decoded is Map && decoded['data'] is List
+        ? decoded['data'] as List
+        : null;
+    if (rows == null) {
+      throw const FormatException('Invalid compulsory attendance response.');
+    }
+    return rows.map((item) {
+      if (item is! Map) {
+        throw const FormatException('Invalid attendance record.');
+      }
+      return Map<String, dynamic>.from(item);
+    }).toList();
+  }
+
+  String _describeError(Object error, String resource) {
+    if (error is StateError) return error.message.toString();
+    if (error is FormatException) {
+      return 'Laravel returned an unexpected format for $resource.';
+    }
+    return 'Could not load $resource. Check the Laravel/ngrok connection and retry.';
+  }
+
+  Future<void> _refresh() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _authError = null;
+        _registrationError = null;
+        _obligationError = null;
+        _registrations = [];
+        _obligations = [];
+      });
+    }
+
+    try {
+      if (!ApiConfig.useRealApi) {
+        throw StateError('Official attendance requires Real API Mode.');
+      }
+      final token = await _LaravelMyPassesViewState._token();
+      List<Map<String, dynamic>> registrations = [];
+      List<Map<String, dynamic>> obligations = [];
+      String? registrationError;
+      String? obligationError;
+
+      // Each collection is independent: one failure must not hide the other.
+      try {
+        registrations = await _fetchRegistrations(token);
+      } catch (error) {
+        registrationError = _describeError(error, 'registered-event attendance');
+      }
+      try {
+        obligations = await _fetchObligations(token);
+      } catch (error) {
+        obligationError = _describeError(error, 'compulsory attendance');
+      }
+      if (!mounted) return;
+      setState(() {
+        _registrations = registrations;
+        _obligations = obligations;
+        _registrationError = registrationError;
+        _obligationError = obligationError;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _authError = _describeError(error, 'official attendance');
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _date(String raw) {
+    final date = DateTime.tryParse(raw);
+    if (date == null) return raw.isEmpty ? 'Date not provided' : raw;
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  // Laravel sends timestamps in UTC with a trailing Z. Show phone-local time.
+  // A bare HH:mm time is used as-is because no timezone was supplied.
+  String _attendanceTime(Object? input) {
+    if (input == null) return 'Not recorded';
+    final raw = input.toString().trim();
+    if (raw.isEmpty) return 'Not recorded';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
+    final local = parsed.toLocal();
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$hour:$minute ${local.hour >= 12 ? 'PM' : 'AM'}';
+  }
+
+  Widget _summaryStat(String label, String value, IconData icon,
+      Color foreground) {
+    final c = Theme.of(context).colorScheme;
+    return Expanded(child: Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(color: c.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: c.outlineVariant)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, color: foreground, size: 21),
+        const SizedBox(height: 10),
+        Text(value, style: TextStyle(color: c.onSurface, fontSize: 22,
+            fontWeight: FontWeight.w900)),
+        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: c.onSurfaceVariant, fontSize: 11)),
+      ]),
+    ));
+  }
+
+  Widget _registrationSummary() {
+    final registered = _registrations.length;
+    final attended = _registrations.where((record) {
+      final status = _value(record, 'attendance').toLowerCase();
+      return status == 'present' || status == 'late' ||
+          status == 'complete';
+    }).length;
+    final awaiting = _registrations.where((record) {
+      final status = _value(record, 'attendance').toLowerCase();
+      return status.isEmpty || status == 'not yet recorded' ||
+          status == 'pending' || status == 'not recorded';
+    }).length;
+    return Row(children: [
+      _summaryStat('Registered', '$registered',
+          Icons.confirmation_number_outlined, _blue),
+      const SizedBox(width: 9),
+      _summaryStat('Attended', '$attended',
+          Icons.verified_outlined, const Color(0xFF168566)),
+      const SizedBox(width: 9),
+      _summaryStat('Awaiting', '$awaiting',
+          Icons.pending_actions_outlined, const Color(0xFF997022)),
+    ]);
+  }
+
+  Color _statusColor(String raw) {
+    final status = raw.toLowerCase().trim();
+    if (status == 'present' || status == 'complete') {
+      return const Color(0xFF168566);
+    }
+    if (status == 'late' || status == 'excused') {
+      return const Color(0xFF216A9B);
+    }
+    if (status == 'absent') {
+      return const Color(0xFFB8404C);
+    }
+    return const Color(0xFF9B711F);
+  }
+
+  String _statusLabel(String raw) {
+    final status = raw.trim();
+    if (status.isEmpty) return 'Not yet recorded';
+    return status.replaceAll('_', ' ');
+  }
+
+  Widget _statusBadge(String status) {
+    final color = _statusColor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        color: color.withValues(alpha: .10),
+      ),
+      child: Text(
+        _statusLabel(status),
+        style: TextStyle(color: color, fontWeight: FontWeight.w800,
+            fontSize: 12),
+      ),
+    );
+  }
+
+  Widget _panel({required Widget child}) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border.all(color: colors.outlineVariant),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _registrationCard(Map<String, dynamic> record) {
+    final colors = Theme.of(context).colorScheme;
+    final status = _value(record, 'attendance', 'Not Yet Recorded');
+    final reference = _value(record, 'reference');
+    final key = reference.isEmpty ? '${record['id'] ?? record.hashCode}' : reference;
+    final expanded = _expandedRegistrations.contains(key);
+    // Optional: when Laravel later exposes verified session records on the
+    // student-only registration route, display them without another UI change.
+    final rawSessions = record['sessions'];
+    final sessions = rawSessions is List
+        ? rawSessions.whereType<Map>()
+        .map((s) => Map<String, dynamic>.from(s)).toList()
+        : <Map<String, dynamic>>[];
+    return _panel(child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.event_available_outlined, color: _blue, size: 25),
+          const SizedBox(width: 10),
+          Expanded(child: Text(_value(record, 'event_title', 'Untitled event'),
+              style: const TextStyle(fontSize: 17,
+                  fontWeight: FontWeight.w900))),
+        ]),
+        const SizedBox(height: 10),
+        Text('Event: ${_date(_value(record, 'event_date'))}',
+            style: TextStyle(color: colors.onSurfaceVariant)),
+        const SizedBox(height: 3),
+        Text('Registration: ${reference.isEmpty ? 'Unavailable' : reference}',
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+        const SizedBox(height: 13),
+        Row(children: [
+          const Expanded(child: Text('Overall attendance',
+              style: TextStyle(fontWeight: FontWeight.w700))),
+          _statusBadge(status),
+        ]),
+        const SizedBox(height: 8),
+        Text('Overall status confirmed by the Laravel registration record.',
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11)),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: () => setState(() {
+            if (expanded) {
+              _expandedRegistrations.remove(key);
+            } else {
+              _expandedRegistrations.add(key);
+            }
+          }),
+          icon: Icon(expanded ? Icons.expand_less_rounded
+              : Icons.expand_more_rounded),
+          label: Text(expanded ? 'Hide scan details' : 'Session scan details'),
+        ),
+        if (expanded) ...[
+          Divider(color: colors.outlineVariant),
+          if (sessions.isNotEmpty)
+            ...sessions.map(_sessionCard)
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(Icons.info_outline_rounded,
+                    color: colors.onSurfaceVariant, size: 19),
+                const SizedBox(width: 9),
+                Expanded(child: Text(
+                  'Laravel currently returns overall attendance for this '
+                      'registration, but not session-level Time In, Time Out, '
+                      'or Late details. Those will appear after the student API '
+                      'exposes verified session records.',
+                  style: TextStyle(color: colors.onSurfaceVariant,
+                      fontSize: 12, height: 1.5),
+                )),
+              ]),
+            ),
+        ],
+      ],
+    ));
+  }
+
+  Widget _sessionCard(Map<String, dynamic> session) {
+    final colors = Theme.of(context).colorScheme;
+    final label = _value(session, 'label', 'Attendance session');
+    final timeIn = _value(session, 'time_in');
+    final timeOut = _value(session, 'time_out');
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(child: Text(label,
+                style: const TextStyle(fontWeight: FontWeight.w800))),
+            _statusBadge(_value(session, 'status', 'Missing')),
+          ]),
+          const SizedBox(height: 6),
+          Text(_date(_value(session, 'date')),
+              style: TextStyle(color: colors.onSurfaceVariant,
+                  fontSize: 12)),
+          const SizedBox(height: 5),
+          Text('Time In: ${_attendanceTime(timeIn)}',
+              style: TextStyle(color: colors.onSurfaceVariant,
+                  fontSize: 12)),
+          Text('Time Out: ${_attendanceTime(timeOut)}',
+              style: TextStyle(color: colors.onSurfaceVariant,
+                  fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _obligationCard(Map<String, dynamic> record) {
+    final colors = Theme.of(context).colorScheme;
+    final status = _value(record, 'attendance_status', 'pending');
+    final scansRecorded = int.tryParse(
+        '${record['scans_recorded'] ?? 0}') ?? 0;
+    final requiredScans = int.tryParse(
+        '${record['required_scans'] ?? 0}') ?? 0;
+    final rawSessions = record['attendance'];
+    final sessions = rawSessions is List
+        ? rawSessions.whereType<Map>()
+        .map((s) => Map<String, dynamic>.from(s)).toList()
+        : <Map<String, dynamic>>[];
+    return _panel(child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.fact_check_outlined, color: _blue, size: 25),
+          const SizedBox(width: 10),
+          Expanded(child: Text(_value(record, 'title', 'Required event'),
+              style: const TextStyle(fontSize: 17,
+                  fontWeight: FontWeight.w900))),
+        ]),
+        const SizedBox(height: 10),
+        Text('${_date(_value(record, 'event_date'))} · '
+            '${_value(record, 'venue', 'Venue not provided')}',
+            style: TextStyle(color: colors.onSurfaceVariant)),
+        const SizedBox(height: 12),
+        Row(children: [
+          const Expanded(child: Text('Overall status',
+              style: TextStyle(fontWeight: FontWeight.w700))),
+          _statusBadge(status),
+        ]),
+        const SizedBox(height: 12),
+        Text('Verified scans: $scansRecorded / $requiredScans',
+            style: const TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 6),
+        LinearProgressIndicator(
+          value: requiredScans <= 0 ? 0 :
+          (scansRecorded / requiredScans).clamp(0.0, 1.0).toDouble(),
+          backgroundColor: colors.outlineVariant,
+          color: _blue,
+          borderRadius: BorderRadius.circular(12),
+          minHeight: 8,
+        ),
+        if (sessions.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          const Text('Sessions',
+              style: TextStyle(fontWeight: FontWeight.w900)),
+          ...sessions.map(_sessionCard),
+        ] else ...[
+          const SizedBox(height: 9),
+          Text('Laravel has no sessions for this obligation yet.',
+              style: TextStyle(color: colors.onSurfaceVariant,
+                  fontSize: 12)),
+        ],
+      ],
+    ));
+  }
+
+  Widget _stateMessage({required IconData icon,
+    required String title, required String message}) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 55, horizontal: 14),
+      child: Column(children: [
+        Icon(icon, color: colors.onSurfaceVariant, size: 42),
+        const SizedBox(height: 13),
+        Text(title, textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+        const SizedBox(height: 7),
+        Text(message, textAlign: TextAlign.center,
+            style: TextStyle(color: colors.onSurfaceVariant, height: 1.4)),
+      ]),
+    );
+  }
+
+  Widget _body() {
+    if (_authError != null) {
+      return _stateMessage(icon: Icons.lock_outline,
+          title: 'Unable to verify your session', message: _authError!);
+    }
+    final registrationTab = _selectedTab == 'Registered events';
+    final error = registrationTab ? _registrationError : _obligationError;
+    final records = registrationTab ? _registrations : _obligations;
+    if (error != null) {
+      return _stateMessage(icon: Icons.cloud_off_rounded,
+          title: 'Unable to load attendance', message: error);
+    }
+    if (records.isEmpty) {
+      return _stateMessage(icon: Icons.event_note_outlined,
+          title: registrationTab ? 'No registrations yet' :
+          'No compulsory attendance records',
+          message: registrationTab
+              ? 'Registered events and their attendance will appear here '
+              'after Laravel confirms your registration.'
+              : 'Laravel has not published compulsory-attendance '
+              'obligations for this account. This does not mean you '
+              'were marked absent.');
+    }
+    return Column(children: [
+      if (!registrationTab) Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text('These records are created when the college finalizes '
+            'the compulsory-attendance roster.',
+            style: TextStyle(color: Theme.of(context)
+                .colorScheme.onSurfaceVariant, fontSize: 12)),
+      ),
+      ...records.map(registrationTab ? _registrationCard : _obligationCard),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: const Text('My Attendance'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh official attendance',
+            onPressed: _loading ? null : _refresh,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(19),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [_navy, _blue]),
+                borderRadius: BorderRadius.circular(23),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.verified_user_outlined,
+                      color: _gold, size: 30),
+                  const SizedBox(height: 9),
+                  const Text('Official attendance records',
+                      style: TextStyle(color: Colors.white,
+                          fontSize: 21, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 7),
+                  const Text('Live records from Laravel. Only authorized '
+                      'scanners can record Time In and Time Out.',
+                      style: TextStyle(color: Colors.white70,
+                          height: 1.4)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 15),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              ChoiceChip(
+                selected: _selectedTab == 'Registered events',
+                label: Text('Registered events (${_registrations.length})'),
+                onSelected: (_) => setState(
+                        () => _selectedTab = 'Registered events'),
+              ),
+              ChoiceChip(
+                selected: _selectedTab == 'Required attendance',
+                label: Text('Required attendance (${_obligations.length})'),
+                onSelected: (_) => setState(
+                        () => _selectedTab = 'Required attendance'),
+              ),
+            ]),
+            const SizedBox(height: 16),
+            if (_authError == null && _registrationError == null &&
+                _selectedTab == 'Registered events' &&
+                _registrations.isNotEmpty) ...[
+              _registrationSummary(),
+              const SizedBox(height: 16),
+            ],
+            _body(),
+            const SizedBox(height: 9),
+            Text('Pull down or tap refresh after an authorized QR scan. '
+                'Displaying a QR code by itself does not record attendance.',
+                style: TextStyle(color: colors.onSurfaceVariant,
+                    fontSize: 11.5, height: 1.5),
+                textAlign: TextAlign.center),
+          ],
+        ),
+      ),
     );
   }
 }
