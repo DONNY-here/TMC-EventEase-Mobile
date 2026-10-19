@@ -50,20 +50,25 @@ const List<String> blockOptions = [
 // Returns null when the block is not valid.
 String? normalizeTmcBlock(Object? input) {
   final value = (input ?? '').toString().trim();
+
   final match = RegExp(
-    r'^(?:block\s*)?(\d{1,2})$',
+    r'^(?:block\s*)?(\d+)$',
     caseSensitive: false,
   ).firstMatch(value);
 
   if (match == null) return null;
 
   final number = int.tryParse(match.group(1)!);
-  if (number == null || number < 1 || number > blockOptions.length) {
+
+  // Allow any positive block number.
+  if (number == null || number < 1) {
     return null;
   }
 
-  return blockOptions[number - 1];
+  return 'Block $number';
 }
+
+
 
 bool isValidEmail(String email) {
   final value = email.trim();

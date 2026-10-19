@@ -160,6 +160,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
           throw const FormatException('Invalid rating returned by Laravel.');
         }
         setState(() {
+          _submitError = null;
           rating = priorRating;
           commentController.text = '${existing['comment'] ?? ''}';
           _hasSubmittedBefore = true;
@@ -194,6 +195,10 @@ class _EvaluationPageState extends State<EvaluationPage> {
     }
     if (rating < 1 || rating > 5) {
       showMessage(context, 'Please select a rating from 1 to 5 stars.');
+      return;
+    }
+    if (commentController.text.trim().length > 300) {
+      showMessage(context, 'Feedback must not exceed 300 characters.');
       return;
     }
     setState(() {
@@ -250,6 +255,15 @@ class _EvaluationPageState extends State<EvaluationPage> {
       if (mounted) setState(() => _submitting = false);
     }
   }
+
+  String get _ratingDescription => switch (rating) {
+    1 => 'Very dissatisfied',
+    2 => 'Dissatisfied',
+    3 => 'Neutral',
+    4 => 'Satisfied',
+    5 => 'Very satisfied',
+    _ => 'Select a rating',
+  };
 
   // ====================================================
   // THEME COLORS
@@ -464,38 +478,53 @@ class _EvaluationPageState extends State<EvaluationPage> {
           // ==========================================
           // INTERACTIVE STAR RATING
           // ==========================================
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 0,
-            children: List.generate(5, (index) {
-              final star = index + 1;
-              final selected = star <= rating;
-
-              return Tooltip(
-                message: '$star out of 5 stars',
-                child: GestureDetector(
-                  onTap: _submitting ? null : () {
-                    setState(() {
-                      rating = star;
-                    });
-                  },
-                  child: AnimatedScale(
-                    scale: selected ? 1.08 : 1,
-                    duration: const Duration(milliseconds: 170),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        selected
-                            ? Icons.star_rounded
-                            : Icons.star_border_rounded,
-                        size: 42,
-                        color: selected ? yellow : _secondaryText,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 305;
+              final starSize = compact ? 35.0 : 42.0;
+              return Wrap(
+                alignment: WrapAlignment.center,
+                spacing: compact ? 0 : 3,
+                children: List.generate(5, (index) {
+                  final star = index + 1;
+                  final selected = star <= rating;
+                  final disabled = _submitting ||
+                      (_realApiMode && (_loadingPrevious || _loadError != null));
+                  return Semantics(
+                    button: true,
+                    enabled: !disabled,
+                    selected: rating == star,
+                    label: '$star out of 5 stars',
+                    child: Tooltip(
+                      message: '$star out of 5 stars',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: disabled ? null : () {
+                          setState(() {
+                            rating = star;
+                            _submitError = null;
+                          });
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(7),
+                          child: AnimatedScale(
+                            scale: selected ? 1.08 : 1,
+                            duration: const Duration(milliseconds: 170),
+                            child: Icon(
+                              selected
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
+                              size: starSize,
+                              color: selected ? yellow : _secondaryText,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                }),
               );
-            }),
+            },
           ),
 
           const SizedBox(height: 15),
@@ -515,7 +544,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                rating == 0 ? 'No rating selected' : '$rating out of 5',
+                rating == 0 ? 'No rating selected' : '$rating out of 5 · $_ratingDescription',
                 style: TextStyle(
                   color: _accent,
                   fontWeight: FontWeight.w800,
@@ -557,6 +586,8 @@ class _EvaluationPageState extends State<EvaluationPage> {
 
         TextField(
           controller: commentController,
+          enabled: !_submitting &&
+              (!_realApiMode || (!_loadingPrevious && _loadError == null)),
           maxLines: 5,
           maxLength: 300,
           keyboardType: TextInputType.multiline,
@@ -735,7 +766,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
 
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 650),
+              constraints: const BoxConstraints(maxWidth: 520),
 
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

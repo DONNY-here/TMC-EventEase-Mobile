@@ -525,77 +525,177 @@ class _LaravelCertificatePageState extends State<LaravelCertificatePage> {
     }
   }
 
+  // This page displays only statuses returned by Laravel.
+  // Do not infer certificate eligibility from local attendance or ratings.
+  String _eligibilityExplanation(Map<String, dynamic> record) {
+    for (final field in [
+      'eligibility_reason',
+      'ineligibility_reason',
+      'status_reason',
+      'reason',
+    ]) {
+      final value = _value(record, field);
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
   Widget _statusCard(Map<String, dynamic>? record) {
     final c = Theme.of(context).colorScheme;
-    final status = record == null ? 'Not yet issued' :
-    _value(record, 'status', 'Unknown');
-    final issued = status.toLowerCase() == 'issued';
-    final pending = status.toLowerCase() == 'pending';
-    final accent = issued ? const Color(0xFF158063) :
-    pending ? const Color(0xFFAD7810) : _blue;
+    final status = record == null
+        ? 'Not yet issued'
+        : _value(record, 'status', 'Unknown');
+    final normalizedStatus = status.toLowerCase();
+    final issued = normalizedStatus == 'issued';
+    final pending = normalizedStatus == 'pending';
+    final notEligible = normalizedStatus == 'not eligible';
+    final accent = issued
+        ? const Color(0xFF158063)
+        : notEligible
+        ? c.error
+        : pending
+        ? const Color(0xFFAD7810)
+        : _blue;
+    final reason = record == null ? '' : _eligibilityExplanation(record);
+
+    String explanation;
+    if (issued) {
+      explanation = 'Laravel confirms that this certificate is issued.';
+    } else if (pending) {
+      explanation = 'This certificate is awaiting administrator action. '
+          'PDF access is unavailable until it is issued.';
+    } else if (notEligible) {
+      explanation = 'Laravel currently marks this certificate as not eligible. '
+          'Check with the event administrator if you believe your attendance '
+          'and other requirements are complete.';
+    } else if (record == null) {
+      explanation = 'No matching certificate record was returned for this event. '
+          'This does not by itself mean you are ineligible.';
+    } else {
+      explanation = 'Certificate status reported by Laravel: $status. '
+          'An official PDF is available only when the status is Issued.';
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: c.outlineVariant),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(issued ? Icons.workspace_premium_rounded :
-          Icons.hourglass_top_rounded, color: accent, size: 30),
-          const SizedBox(width: 10),
-          Expanded(child: Text(issued ? 'Official certificate available' :
-          'Certificate status',
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17))),
-        ]),
-        const SizedBox(height: 12),
-        Text(status, style: TextStyle(
-            color: accent, fontSize: 19, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 8),
-        Text(issued
-            ? 'Issued by TMC EventEase through Laravel.'
-            : pending
-            ? 'Your certificate is pending administrator approval. '
-            'PDF access is not available yet.'
-            : status.toLowerCase() == 'not eligible'
-            ? 'Laravel currently lists this certificate as not eligible.'
-            : 'No certificate record has been issued for this event '
-            'yet. Completing an evaluation alone does not '
-            'guarantee a certificate.',
-            style: TextStyle(color: c.onSurfaceVariant, height: 1.5)),
-        if (record != null) ...[
-          const SizedBox(height: 12),
-          Text('Reference: ${_value(record, 'reference', 'Unavailable')}',
-              style: TextStyle(color: c.onSurfaceVariant, fontSize: 12)),
-          const SizedBox(height: 5),
-          Text('Participant: ${_value(record, 'participant', 'Unavailable')}',
-              style: TextStyle(color: c.onSurfaceVariant, fontSize: 12)),
-          if (_value(record, 'date_issued').isNotEmpty) ...[
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                issued
+                    ? Icons.workspace_premium_rounded
+                    : notEligible
+                    ? Icons.info_outline_rounded
+                    : Icons.hourglass_top_rounded,
+                color: accent,
+                size: 30,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  issued ? 'Official certificate available' : 'Certificate status',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 17,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            status,
+            style: TextStyle(
+              color: accent,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            explanation,
+            style: TextStyle(color: c.onSurfaceVariant, height: 1.5),
+          ),
+          if (reason.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              'Reason provided by Laravel',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: c.onSurface,
+              ),
+            ),
             const SizedBox(height: 5),
-            Text('Issued: ${_value(record, 'date_issued')}',
-                style: TextStyle(color: c.onSurfaceVariant, fontSize: 12)),
+            Text(
+              reason,
+              style: TextStyle(color: c.onSurfaceVariant, height: 1.5),
+            ),
           ],
-          if (issued) ...[
-            const SizedBox(height: 18),
-            SizedBox(width: double.infinity, child: FilledButton.icon(
-              onPressed: _pdfLoading ? null : () => _loadPdf(record, share: false),
-              icon: const Icon(Icons.picture_as_pdf_rounded),
-              label: Text(_pdfLoading ? 'Loading PDF...' : 'View official PDF'),
-              style: FilledButton.styleFrom(
-                  backgroundColor: _navy, foregroundColor: Colors.white,
-                  minimumSize: const Size(0, 48)),
-            )),
+          if (record != null) ...[
+            const SizedBox(height: 16),
+            Divider(color: c.outlineVariant),
             const SizedBox(height: 8),
-            SizedBox(width: double.infinity, child: OutlinedButton.icon(
-              onPressed: _pdfLoading ? null : () => _loadPdf(record, share: true),
-              icon: const Icon(Icons.ios_share_rounded),
-              label: const Text('Save / Share PDF'),
-            )),
+            Text('Reference: ${_value(record, 'reference', 'Unavailable')}',
+                style: TextStyle(color: c.onSurfaceVariant, fontSize: 12)),
+            const SizedBox(height: 5),
+            Text('Participant: ${_value(record, 'participant', 'Unavailable')}',
+                style: TextStyle(color: c.onSurfaceVariant, fontSize: 12)),
+            if (_value(record, 'date_issued').isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Text('Issued: ${_value(record, 'date_issued')}',
+                  style: TextStyle(color: c.onSurfaceVariant, fontSize: 12)),
+            ],
+            if (issued) ...[
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _pdfLoading
+                      ? null
+                      : () => _loadPdf(record, share: false),
+                  icon: const Icon(Icons.picture_as_pdf_rounded),
+                  label: Text(_pdfLoading ? 'Loading PDF...' : 'View official PDF'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _navy,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 48),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _pdfLoading
+                      ? null
+                      : () => _loadPdf(record, share: true),
+                  icon: const Icon(Icons.ios_share_rounded),
+                  label: const Text('Save / Share PDF'),
+                ),
+              ),
+            ],
+          ],
+          if (!issued) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _loading || _pdfLoading ? null : _reload,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Refresh certificate status'),
+              ),
+            ),
           ],
         ],
-      ]),
+      ),
     );
   }
 

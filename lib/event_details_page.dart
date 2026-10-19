@@ -21,7 +21,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   // Registration itself stays in registeredEvents.
   bool _showRegistrationConfirmation = false;
 
-  bool get _isRegistered => registeredEvents.any(
+  bool get _isRegistered => !ApiConfig.useRealApi && registeredEvents.any(
         (event) => eventKey(event) == eventKey(widget.event),
   );
 
@@ -442,6 +442,15 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   // ====================================================
 
   Future<void> registerEvent() async {
+    // This page uses an in-memory demo registration flow only.
+    // The live registration endpoint must be called by the authenticated
+    // Events workflow; never issue a local QR pass in Real API Mode.
+    if (ApiConfig.useRealApi) {
+      showMessage(context,
+          'Live registration is available from the Events page.');
+      return;
+    }
+
     if (_isRegistered) {
       showMessage(context, 'You are already registered for this event.');
       return;
@@ -792,11 +801,13 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
           Expanded(
             child: Text(
-              registered
-                  ? 'REGISTRATION CONFIRMED'
+              ApiConfig.useRealApi
+                  ? 'PREVIEW ONLY — NOT SERVER VERIFIED'
+                  : registered
+                  ? 'DEMO REGISTRATION CONFIRMED'
                   : verified
-                  ? 'ELIGIBLE TO JOIN'
-                  : 'NOT ELIGIBLE TO JOIN',
+                  ? 'ELIGIBLE IN DEMO MODE'
+                  : 'NOT ELIGIBLE IN DEMO MODE',
               style: TextStyle(
                 color: statusColor,
                 fontWeight: FontWeight.w900,
@@ -959,6 +970,101 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   }
 
   // ====================================================
+  // STUDENT-FRIENDLY EVENT SUMMARY
+  // ====================================================
+  Widget _experienceSummary() {
+    final live = ApiConfig.useRealApi;
+    final accent = live ? const Color(0xFF3978C5) :
+    (_isRegistered ? const Color(0xFF24855E) : _accentColor);
+    final title = live
+        ? 'Event preview — verify with Laravel'
+        : _isRegistered
+        ? 'You have a demo registration'
+        : _eligibleToRegister
+        ? 'You can register in Demo Mode'
+        : !_hasAvailableSlot
+        ? 'No demo slots available'
+        : _deadlinePassed || !widget.event.registrationOpen
+        ? 'Demo registration is closed'
+        : 'Check your registration requirements';
+    final explanation = live
+        ? 'This detail screen uses local event information. For live eligibility, '
+        'seat counts, and official registration, return to Events.'
+        : _isRegistered
+        ? 'Your local registration is saved for this test session. '
+        'Open My Events to view your demo pass.'
+        : _eligibleToRegister
+        ? 'Your local profile meets the demo requirements shown below.'
+        : 'Expand the checklist below to see which demo requirements need attention.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: _isDark ? 0.14 : 0.07),
+        borderRadius: BorderRadius.circular(19),
+        border: Border.all(color: accent.withValues(alpha: 0.32)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(live ? Icons.cloud_outlined :
+        _isRegistered ? Icons.verified_rounded :
+        _eligibleToRegister ? Icons.fact_check_rounded : Icons.info_outline,
+            color: accent, size: 25),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: TextStyle(color: _primaryText,
+                fontSize: 14, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 5),
+            Text(explanation, style: TextStyle(color: _secondaryText,
+                fontSize: 12, height: 1.5)),
+          ],
+        )),
+      ]),
+    );
+  }
+
+  Widget _quickFacts() {
+    final facts = <({IconData icon, String label, String value})>[
+      (icon: Icons.event_outlined, label: 'Date', value: widget.event.date),
+      (icon: Icons.schedule_rounded, label: 'Time', value: widget.event.time),
+      (icon: Icons.location_on_outlined, label: 'Venue', value: widget.event.venue),
+      (icon: Icons.groups_outlined, label: 'Capacity',
+      value: '${widget.event.capacity} total'),
+    ];
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = (constraints.maxWidth - 10) / 2;
+      return Wrap(spacing: 10, runSpacing: 10,
+        children: facts.map((fact) => SizedBox(width: width,
+          child: Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: _cardBackground,
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(color: _cardBorder),
+            ),
+            child: Row(children: [
+              Icon(fact.icon, color: _iconColor, size: 20),
+              const SizedBox(width: 9),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(fact.label, style: TextStyle(color: _secondaryText,
+                      fontSize: 10.5)),
+                  const SizedBox(height: 3),
+                  Text(fact.value.trim().isEmpty ? 'To be announced' : fact.value,
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: _primaryText,
+                          fontSize: 12, fontWeight: FontWeight.w800)),
+                ],
+              )),
+            ]),
+          ),
+        )).toList(),
+      );
+    });
+  }
+
+  // ====================================================
   // MAIN EVENT DETAILS UI
   // ====================================================
 
@@ -1006,7 +1112,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               : SizedBox(
             height: 54,
             child: ElevatedButton.icon(
-              onPressed: _eligibleToRegister ? registerEvent : null,
+              onPressed: !ApiConfig.useRealApi && _eligibleToRegister ? registerEvent : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: yellow,
                 foregroundColor: navy,
@@ -1016,10 +1122,14 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              icon: Icon(_eligibleToRegister
+              icon: Icon(ApiConfig.useRealApi
+                  ? Icons.cloud_outlined
+                  : _eligibleToRegister
                   ? Icons.how_to_reg_rounded
                   : Icons.block_rounded),
-              label: Text(_eligibleToRegister
+              label: Text(ApiConfig.useRealApi
+                  ? 'Register from Events'
+                  : _eligibleToRegister
                   ? 'Confirm Registration'
                   : 'Not Eligible to Register'),
             ),
@@ -1158,6 +1268,11 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             ),
             const SizedBox(height: 18),
 
+            _experienceSummary(),
+            const SizedBox(height: 15),
+            _quickFacts(),
+            const SizedBox(height: 25),
+
             // ==========================================
             // EVENT INFORMATION
             // ==========================================
@@ -1280,7 +1395,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    'Demo estimate · not live server availability',
+                    ApiConfig.useRealApi
+                        ? 'Preview data only · See Events for live availability'
+                        : 'Demo estimate · not live server availability',
                     style: TextStyle(color: _secondaryText, fontSize: 11),
                   ),
                   _divider(height: 16),
@@ -1299,7 +1416,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             // ==========================================
             // REGISTRATION VERIFICATION - COMPACT SUMMARY
             // ==========================================
-            _sectionHeading('Registration Verification'),
+            _sectionHeading(ApiConfig.useRealApi
+                ? 'Preview Eligibility Checklist'
+                : 'Registration Verification'),
             const SizedBox(height: 12),
             _card(
               padding: const EdgeInsets.all(12),
