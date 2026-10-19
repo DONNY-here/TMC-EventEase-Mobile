@@ -26,13 +26,14 @@ class _DashboardPageState extends State<DashboardPage> {
   List<Map<String, dynamic>> _liveRegistrations = [];
   List<Map<String, dynamic>> _liveCampusEvents = [];
   int _serial = 0;
+  int _badgeSerial = 0;
 
   @override
   void initState() {
     super.initState();
     if (_realApiMode) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _refreshLive();
+        if (mounted) _refreshDashboardAndBadge();
       });
     }
   }
@@ -93,6 +94,53 @@ class _DashboardPageState extends State<DashboardPage> {
       return 'Laravel returned an unexpected data format.';
     }
     return 'Could not reach Laravel. Check the internet connection and try again.';
+  }
+
+  // Update the dashboard and unread badge independently so a slow notices
+  // request never delays registered-event statistics.
+  Future<void> _refreshDashboardAndBadge() async {
+    if (!_realApiMode) return;
+    await Future.wait<void>([
+      _refreshLive(),
+      _refreshUnreadBadge(),
+    ]);
+  }
+
+  // Only IDs from Laravel's student-readable, audience-filtered endpoint
+  // are counted. Never count the hardcoded Demo Mode notifications here.
+  Future<void> _refreshUnreadBadge() async {
+    if (!_realApiMode) return;
+    final requestId = ++_badgeSerial;
+    try {
+      final token = await authTokenStorage.readValidToken();
+      if (token == null || token.trim().isEmpty) {
+        throw StateError('Your session has expired. Please sign in again.');
+      }
+      final announcements = await _fetchAll('/api/my/announcements', token);
+      if (!mounted || requestId != _badgeSerial) return;
+
+      final ids = <String>{};
+      for (final announcement in announcements) {
+        // Must match AnnouncementsPage._parseAnnouncement ID exactly.
+        final reference = _field(announcement, 'reference').isNotEmpty
+            ? _field(announcement, 'reference')
+            : _field(announcement, 'id');
+        if (reference.isNotEmpty) {
+          ids.add('laravel_announcement_$reference');
+        }
+      }
+      _liveAnnouncementIds
+        ..clear()
+        ..addAll(ids);
+      // ValueNotifier tells the AppBar badge to rebuild immediately.
+      refreshNotifications();
+    } catch (_) {
+      if (!mounted || requestId != _badgeSerial) return;
+      // If the student feed is unavailable, avoid displaying stale
+      // unread numbers from a previous successful request.
+      _liveAnnouncementIds.clear();
+      refreshNotifications();
+    }
   }
 
   Future<void> _refreshLive() async {
@@ -211,7 +259,7 @@ class _DashboardPageState extends State<DashboardPage> {
           Text(error, textAlign: TextAlign.center,
               style: TextStyle(color: c.onSurfaceVariant)),
           const SizedBox(height: 10),
-          TextButton.icon(onPressed: _refreshLive,
+          TextButton.icon(onPressed: _refreshDashboardAndBadge,
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Retry')),
         ]),
@@ -322,6 +370,58 @@ class _DashboardPageState extends State<DashboardPage> {
   void _updates(BuildContext context) => Navigator.push(
     context, animatedRoute(const AnnouncementsPage()),
   );
+
+  // Rebuilds when a notice is opened or "Mark all as read" is tapped.
+  // This is the same shared ValueNotifier used by AnnouncementsPage.
+  Widget _notificationBell(BuildContext context) {
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: readNotificationIds,
+      builder: (context, readIds, child) {
+        final count = getUnreadNotificationCount();
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton.filledTonal(
+              tooltip: count == 0
+                  ? 'Campus updates'
+                  : '$count unread notification${count == 1 ? '' : 's'}',
+              onPressed: () => _updates(context),
+              icon: const Icon(Icons.notifications_none_rounded),
+            ),
+            if (count > 0)
+              Positioned(
+                top: -3,
+                right: -4,
+                child: IgnorePointer(
+                  child: Container(
+                    constraints: const BoxConstraints(
+                        minWidth: 19, minHeight: 19),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: _gold,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.surface,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Text(
+                      count > 99 ? '99+' : '$count',
+                      style: const TextStyle(
+                        color: _ink,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
 
   DateTime? _date(String raw) {
     final parsed = DateTime.tryParse(raw.trim());
@@ -630,15 +730,12 @@ class _DashboardPageState extends State<DashboardPage> {
               fontWeight: FontWeight.w700, letterSpacing: .6)),
         ]),
         actions: [
-          IconButton.filledTonal(
-              tooltip: 'Campus updates',
-              onPressed: () => _updates(context),
-              icon: const Icon(Icons.notifications_none_rounded)),
+          _notificationBell(context),
           const SizedBox(width: 14),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _realApiMode ? _refreshLive : () async {},
+        onRefresh: _realApiMode ? _refreshDashboardAndBadge : () async {},
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 30),

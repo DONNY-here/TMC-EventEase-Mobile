@@ -1,8 +1,8 @@
 part of 'main.dart';
 
 // ======================================================
-// TMC EVENTEASE - NOTIFICATION CENTER
-// LIGHT AND DARK MODE SUPPORTED
+// NOTIFICATION CENTER
+// Uses shared notification state in config_and_data.dart.
 // ======================================================
 
 class _EventEaseNotification {
@@ -23,10 +23,6 @@ class _EventEaseNotification {
   });
 }
 
-// ======================================================
-// ANNOUNCEMENTS PAGE
-// ======================================================
-
 class AnnouncementsPage extends StatefulWidget {
   const AnnouncementsPage({super.key});
 
@@ -34,43 +30,154 @@ class AnnouncementsPage extends StatefulWidget {
   State<AnnouncementsPage> createState() => _AnnouncementsPageState();
 }
 
+// Cached IDs for the optional navbar notification badge adjustment.
+// Populated only after a successful student announcements API fetch.
+final Set<String> _liveAnnouncementIds = <String>{};
+
 class _AnnouncementsPageState extends State<AnnouncementsPage> {
   String _filter = 'All';
+  bool _liveLoading = false;
+  String? _liveError;
+  int _liveRequest = 0;
+  List<_EventEaseNotification> _liveNotices = [];
 
-  // ====================================================
-  // LIGHT AND DARK MODE COLORS
-  // ====================================================
+  @override
+  void initState() {
+    super.initState();
+    if (ApiConfig.useRealApi) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadLiveAnnouncements();
+      });
+    }
+  }
 
-  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  Uri _announcementEndpoint(int page) {
+    final origin = Uri.tryParse(ApiConfig.baseUrl.trim());
+    if (origin == null || origin.scheme != 'https' ||
+        origin.host.isEmpty || origin.userInfo.isNotEmpty ||
+        (origin.path.isNotEmpty && origin.path != '/')) {
+      throw StateError('The secure Laravel API URL is not configured.');
+    }
+    return origin.replace(
+      path: '/api/my/announcements',
+      queryParameters: {'page': '$page'},
+      fragment: null,
+    );
+  }
 
-  Color get _pageBackground =>
-      _isDark ? const Color(0xFF101B2D) : const Color(0xFFF5F8FC);
+  static _EventEaseNotification _parseAnnouncement(Map<String, dynamic> row) {
+    final reference = (row['reference'] ?? row['id'] ?? '').toString().trim();
+    if (reference.isEmpty) {
+      throw const FormatException('A Laravel announcement has no reference.');
+    }
+    final title = (row['title'] ?? '').toString().trim();
+    final message = (row['message'] ?? '').toString().trim();
+    final category = (row['category'] ?? 'General').toString().trim();
+    IconData icon;
+    switch (category.toLowerCase()) {
+      case 'event':
+        icon = Icons.event_note_rounded;
+        break;
+      case 'emergency':
+        icon = Icons.warning_amber_rounded;
+        break;
+      case 'maintenance':
+        icon = Icons.build_circle_outlined;
+        break;
+      default:
+        icon = Icons.campaign_rounded;
+    }
+    return _EventEaseNotification(
+      id: 'laravel_announcement_$reference',
+      title: title.isEmpty ? 'Campus notice' : title,
+      message: message,
+      icon: icon,
+      category: category.toLowerCase() == 'event' ? 'Events' : 'Announcements',
+    );
+  }
 
-  Color get _cardBackground => _isDark ? const Color(0xFF19283D) : Colors.white;
+  String _errorMessage(Object error) {
+    if (error is StateError) return error.message.toString();
+    if (error is FormatException) {
+      return 'Laravel returned an unexpected announcement response.';
+    }
+    return 'Cannot reach Laravel. Check the connection and try again.';
+  }
 
-  Color get _unreadBackground =>
-      _isDark ? const Color(0xFF223A58) : const Color(0xFFEAF2FB);
+  Future<void> _loadLiveAnnouncements() async {
+    if (!ApiConfig.useRealApi) return;
+    final requestId = ++_liveRequest;
+    if (mounted) {
+      setState(() {
+        _liveLoading = true;
+        _liveError = null;
+        _liveNotices = [];
+      });
+    }
+    final fetched = <_EventEaseNotification>[];
+    String? failure;
+    try {
+      final token = await authTokenStorage.readValidToken();
+      if (token == null || token.trim().isEmpty) {
+        throw StateError('Your session expired. Sign in again.');
+      }
+      var page = 1;
+      var lastPage = 1;
+      do {
+        final response = await http.get(
+          _announcementEndpoint(page),
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        ).timeout(const Duration(seconds: 20));
+        if (response.statusCode == 401) {
+          throw StateError('Your session expired. Sign in again.');
+        }
+        if (response.statusCode == 403) {
+          throw StateError('Laravel denied access to student announcements.');
+        }
+        if (response.statusCode == 404) {
+          throw StateError('Student announcements route is missing on Laravel.');
+        }
+        if (response.statusCode != 200) {
+          throw StateError('Laravel returned HTTP ${response.statusCode}.');
+        }
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map || decoded['data'] is! List) {
+          throw const FormatException('Invalid announcement pagination.');
+        }
+        for (final item in decoded['data'] as List) {
+          if (item is! Map) {
+            throw const FormatException('Invalid announcement record.');
+          }
+          fetched.add(_parseAnnouncement(Map<String, dynamic>.from(item)));
+        }
+        lastPage = int.tryParse('${decoded['last_page'] ?? 1}') ?? 1;
+        if (lastPage < 1 || lastPage > 50) {
+          throw StateError('Too many announcement pages to load.');
+        }
+        page++;
+      } while (page <= lastPage);
+    } catch (error) {
+      failure = _errorMessage(error);
+    }
+    if (!mounted || requestId != _liveRequest) return;
+    setState(() {
+      _liveError = failure;
+      _liveNotices = failure == null ? fetched : [];
+      _liveLoading = false;
+    });
+    _liveAnnouncementIds
+      ..clear()
+      ..addAll(_liveNotices.map((notice) => notice.id));
+    refreshNotifications();
+  }
 
-  Color get _primaryText =>
-      _isDark ? const Color(0xFFF0F5FF) : const Color(0xFF17283E);
-
-  Color get _secondaryText =>
-      _isDark ? const Color(0xFFB7C5D8) : const Color(0xFF69798C);
-
-  Color get _outline =>
-      _isDark ? const Color(0xFF344861) : const Color(0xFFE1E8F2);
-
-  Color get _accent => _isDark ? yellow : navy;
-
-  Color get _iconBackground =>
-      _isDark ? const Color(0xFF39412F) : const Color(0xFFFFF5D8);
-
-  // ====================================================
-  // BUILD NOTIFICATION DATA
-  // EXISTING NOTIFICATION LOGIC PRESERVED
-  // ====================================================
 
   List<_EventEaseNotification> _notifications() {
+    if (ApiConfig.useRealApi) return _liveNotices;
     final items = <_EventEaseNotification>[
       const _EventEaseNotification(
         id: 'announcement_techtalk',
@@ -79,83 +186,61 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
         icon: Icons.campaign_rounded,
         category: 'Announcements',
       ),
-
       const _EventEaseNotification(
         id: 'announcement_reminder',
         title: 'Event Reminder',
-        message:
-            'Please arrive 15 minutes before '
-            'your registered event.',
+        message: 'Please arrive 15 minutes before your registered event.',
         icon: Icons.alarm_rounded,
         category: 'Announcements',
       ),
-
       const _EventEaseNotification(
         id: 'announcement_qr',
         title: 'Bring Your QR Code',
-        message:
-            'Your QR code will be used during '
-            'attendance checking.',
+        message: 'Your QR code will be used during attendance checking.',
         icon: Icons.qr_code_2_rounded,
         category: 'Announcements',
       ),
     ];
 
-    // Event-related notifications
     for (final event in registeredEvents) {
       final key = eventKey(event);
-
-      items.add(
-        _EventEaseNotification(
-          id: 'registration_$key',
-          title: 'Registration Confirmed',
-          message: 'You are registered for ${event.title}.',
-          icon: Icons.how_to_reg_rounded,
-          category: 'Events',
-          event: event,
-        ),
-      );
+      items.add(_EventEaseNotification(
+        id: 'registration_$key',
+        title: 'Registration Confirmed',
+        message: 'You are registered for ${event.title}.',
+        icon: Icons.how_to_reg_rounded,
+        category: 'Events',
+        event: event,
+      ));
 
       if (attendanceStatus[key] == 'Present') {
-        items.add(
-          _EventEaseNotification(
-            id: 'attendance_$key',
-            title: 'Attendance Confirmed',
-            message:
-                'Your attendance for ${event.title} '
-                'was recorded.',
-            icon: Icons.check_circle_rounded,
-            category: 'Events',
-            event: event,
-          ),
-        );
+        items.add(_EventEaseNotification(
+          id: 'attendance_$key',
+          title: 'Attendance Confirmed',
+          message: 'Your attendance for ${event.title} was recorded.',
+          icon: Icons.check_circle_rounded,
+          category: 'Events',
+          event: event,
+        ));
 
         if ((eventRatings[key] ?? 0) > 0) {
-          items.add(
-            _EventEaseNotification(
-              id: 'certificate_$key',
-              title: 'E-Certificate Available',
-              message:
-                  'Your certificate for ${event.title} '
-                  'is ready to view.',
-              icon: Icons.workspace_premium_rounded,
-              category: 'Certificates',
-              event: event,
-            ),
-          );
+          items.add(_EventEaseNotification(
+            id: 'certificate_$key',
+            title: 'E-Certificate Available',
+            message: 'Your certificate for ${event.title} is ready to view.',
+            icon: Icons.workspace_premium_rounded,
+            category: 'Certificates',
+            event: event,
+          ));
         } else {
-          items.add(
-            _EventEaseNotification(
-              id: 'evaluation_$key',
-              title: 'Complete Your Evaluation',
-              message:
-                  'Evaluate ${event.title} to unlock '
-                  'your E-Certificate.',
-              icon: Icons.rate_review_rounded,
-              category: 'Events',
-              event: event,
-            ),
-          );
+          items.add(_EventEaseNotification(
+            id: 'evaluation_$key',
+            title: 'Complete Your Evaluation',
+            message: 'Evaluate ${event.title} to unlock your E-Certificate.',
+            icon: Icons.rate_review_rounded,
+            category: 'Events',
+            event: event,
+          ));
         }
       }
     }
@@ -163,420 +248,207 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
     return items.reversed.toList();
   }
 
-  // ====================================================
-  // OPEN NOTIFICATION
-  // SHARED READ / UNREAD HANDLING PRESERVED
-  // ====================================================
-
   Future<void> _openNotification(_EventEaseNotification notification) async {
     markNotificationAsRead(notification.id);
-
     if (notification.event != null) {
       await Navigator.push(
         context,
         animatedRoute(EventDetailsPage(event: notification.event!)),
       );
-
-      if (mounted) {
-        setState(() {});
-      }
+      if (mounted) setState(() {});
     }
   }
 
-  // ====================================================
-  // HEADER CARD
-  // ====================================================
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Notifications')),
+      body: RefreshIndicator(
+        onRefresh: ApiConfig.useRealApi
+            ? _loadLiveAnnouncements
+            : () async { if (mounted) setState(() {}); },
+        child: ValueListenableBuilder<Set<String>>(
+          valueListenable: readNotificationIds,
+          builder: (context, readIds, _) {
+            final notifications = _notifications();
+            final unread = notifications.where((n) => !readIds.contains(n.id)).length;
+            final visible = notifications
+                .where((n) => _filter == 'All' || n.category == _filter)
+                .toList();
 
-  Widget _headerCard(int unread) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: appGradient,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: navy.withValues(alpha: 0.12),
-            blurRadius: 17,
-            offset: const Offset(0, 7),
-          ),
-        ],
-      ),
-
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(15),
-            ),
-
-            child: const Icon(
-              Icons.notifications_active_rounded,
-              color: yellow,
-              size: 28,
-            ),
-          ),
-
-          const SizedBox(width: 13),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
               children: [
-                const Text(
-                  'Stay Updated',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  '$unread unread notification'
-                  '${unread == 1 ? '' : 's'}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12.5),
-                ),
-              ],
-            ),
-          ),
-
-          if (unread > 0)
-            Container(
-              constraints: const BoxConstraints(minWidth: 31, minHeight: 31),
-              padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: yellow,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                '$unread',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: navy,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // ====================================================
-  // NOTIFICATION CATEGORY FILTERS
-  // ====================================================
-
-  Widget _filterChips() {
-    const categories = ['All', 'Events', 'Certificates', 'Announcements'];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-
-      child: Row(
-        children: categories.map((category) {
-          final selected = _filter == category;
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-
-            child: ChoiceChip(
-              label: Text(category),
-
-              selected: selected,
-
-              backgroundColor: _cardBackground,
-
-              selectedColor: _isDark ? yellow : navy,
-
-              side: BorderSide(
-                color: selected ? (_isDark ? yellow : navy) : _outline,
-              ),
-
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-
-              labelStyle: TextStyle(
-                color: selected
-                    ? (_isDark ? navy : Colors.white)
-                    : _primaryText,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                fontSize: 12,
-              ),
-
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-
-              onSelected: (_) {
-                setState(() {
-                  _filter = category;
-                });
-              },
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  // ====================================================
-  // NOTIFICATION CARD
-  // ====================================================
-
-  Widget _notificationCard({
-    required _EventEaseNotification notification,
-    required bool unread,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: unread ? _unreadBackground : _cardBackground,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _outline),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: _isDark ? 0.10 : 0.035),
-            blurRadius: 13,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
-
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-
-          onTap: () {
-            _openNotification(notification);
-          },
-
-          child: Padding(
-            padding: const EdgeInsets.all(15),
-
-            child: Row(
-              children: [
-                // NOTIFICATION ICON
                 Container(
-                  width: 48,
-                  height: 48,
+                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: _iconBackground,
-                    borderRadius: BorderRadius.circular(14),
+                    gradient: appGradient,
+                    borderRadius: BorderRadius.circular(22),
                   ),
-
-                  child: Icon(
-                    notification.icon,
-                    color: _isDark ? yellow : navy,
-                    size: 24,
-                  ),
-                ),
-
-                const SizedBox(width: 12),
-
-                // NOTIFICATION INFORMATION
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-
+                  child: Row(
                     children: [
-                      Text(
-                        notification.title,
-                        style: TextStyle(
-                          color: _primaryText,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-
-                      const SizedBox(height: 5),
-
-                      Text(
-                        notification.message,
-                        style: TextStyle(
-                          color: _secondaryText,
-                          fontSize: 12.5,
-                          height: 1.45,
+                      const Icon(Icons.notifications_active_rounded,
+                          color: yellow, size: 30),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Stay Updated',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                )),
+                            const SizedBox(height: 3),
+                            Text('$unread unread notification${unread == 1 ? '' : 's'}',
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 12.5)),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-
-                const SizedBox(width: 8),
-
-                if (unread)
-                  Container(
-                    width: 9,
-                    height: 9,
-                    decoration: const BoxDecoration(
-                      color: yellow,
-                      shape: BoxShape.circle,
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('Recent Updates',
+                          style: TextStyle(
+                              color: textDark, fontWeight: FontWeight.w800,
+                              fontSize: 16)),
                     ),
-                  )
-                else
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: _secondaryText,
-                    size: 22,
+                    TextButton(
+                      onPressed: unread == 0 ? null : () {
+                        readNotificationIds.value = {
+                          ...readNotificationIds.value,
+                          ...notifications.map((notice) => notice.id),
+                        };
+                      },
+                      child: const Text('Mark all as read'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: ['All', 'Events', 'Certificates', 'Announcements']
+                        .map((category) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(category),
+                        selected: _filter == category,
+                        onSelected: (_) =>
+                            setState(() => _filter = category),
+                      ),
+                    ))
+                        .toList(),
                   ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ====================================================
-  // EMPTY NOTIFICATIONS
-  // ====================================================
-
-  Widget _emptyState() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 14),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 35),
-      decoration: BoxDecoration(
-        color: _cardBackground,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _outline),
-      ),
-
-      child: Column(
-        children: [
-          Icon(Icons.notifications_off_outlined, color: _accent, size: 42),
-
-          const SizedBox(height: 12),
-
-          Text(
-            'No Notifications',
-            style: TextStyle(
-              color: _primaryText,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-
-          const SizedBox(height: 7),
-
-          Text(
-            'No notifications in this category.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: _secondaryText, fontSize: 13),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ====================================================
-  // MAIN NOTIFICATION PAGE
-  // ====================================================
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _pageBackground,
-
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        backgroundColor: navy,
-        foregroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-      ),
-
-      body: ValueListenableBuilder<Set<String>>(
-        valueListenable: readNotificationIds,
-
-        builder: (context, readIds, _) {
-          final notifications = _notifications();
-
-          final unread = notifications
-              .where((notice) => !readIds.contains(notice.id))
-              .length;
-
-          final visible = notifications.where((notice) {
-            return _filter == 'All' || notice.category == _filter;
-          }).toList();
-
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
-
-            children: [
-              // ==================================
-              // NOTIFICATION HEADER
-              // ==================================
-              _headerCard(unread),
-
-              const SizedBox(height: 20),
-
-              // ==================================
-              // RECENT UPDATES
-              // ==================================
-              Row(
-                children: [
-                  Expanded(
+                ),
+                const SizedBox(height: 14),
+                if (ApiConfig.useRealApi)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 10),
                     child: Text(
-                      'Recent Updates',
-                      style: TextStyle(
-                        color: _primaryText,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
+                      'Read status is saved in this app session. Pull down to refresh live announcements.',
+                      style: TextStyle(fontSize: 11, color: textGrey),
                     ),
                   ),
-
-                  TextButton(
-                    onPressed: unread == 0 ? null : markAllNotificationsAsRead,
-
-                    style: TextButton.styleFrom(foregroundColor: _accent),
-
-                    child: const Text(
-                      'Mark all as read',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                if (ApiConfig.useRealApi && _liveLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 35),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (ApiConfig.useRealApi && _liveError != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 27),
+                    child: Column(children: [
+                      const Icon(Icons.cloud_off_rounded, size: 35),
+                      const SizedBox(height: 10),
+                      Text(_liveError!, textAlign: TextAlign.center),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: _loadLiveAnnouncements,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Retry'),
+                      ),
+                    ]),
+                  )
+                else if (visible.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Text('No notifications in this category.',
+                            style: TextStyle(color: textGrey)),
                       ),
                     ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 10),
-
-              // ==================================
-              // CATEGORY FILTERS
-              // ==================================
-              _filterChips(),
-
-              const SizedBox(height: 17),
-
-              // ==================================
-              // NOTIFICATION LIST
-              // ==================================
-              if (visible.isEmpty)
-                _emptyState()
-              else
-                ...visible.map((notification) {
-                  final unread = !readIds.contains(notification.id);
-
-                  return _notificationCard(
-                    notification: notification,
-                    unread: unread,
-                  );
-                }),
-            ],
-          );
-        },
+                if (!_liveLoading && _liveError == null)
+                  ...visible.map((notification) {
+                    final isUnread = !readIds.contains(notification.id);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Material(
+                        color: isUnread ? lightNavy : Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: () => _openNotification(notification),
+                          child: Container(
+                            padding: const EdgeInsets.all(15),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: borderColor),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 45,
+                                  height: 45,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF5D8),
+                                    borderRadius: BorderRadius.circular(13),
+                                  ),
+                                  child: Icon(notification.icon,
+                                      color: navy, size: 23),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(notification.title,
+                                          style: const TextStyle(
+                                              color: textDark,
+                                              fontWeight: FontWeight.w800)),
+                                      const SizedBox(height: 4),
+                                      Text(notification.message,
+                                          style: const TextStyle(
+                                              color: textGrey, fontSize: 12.5)),
+                                    ],
+                                  ),
+                                ),
+                                if (isUnread)
+                                  const Padding(
+                                    padding: EdgeInsets.only(left: 8),
+                                    child: CircleAvatar(
+                                        radius: 4, backgroundColor: yellow),
+                                  )
+                                else
+                                  const Icon(Icons.chevron_right_rounded,
+                                      color: textGrey),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

@@ -366,6 +366,13 @@ const List<String> generalNotificationIds = [
 
 // Builds notification IDs based on student event activity.
 List<String> getAllNotificationIds() {
+  // Real API Mode: the unread badge uses only Laravel announcements
+  // loaded by announcements_page.dart, never local demonstration data.
+  if (ApiConfig.useRealApi) {
+    return _liveAnnouncementIds.toList(growable: false);
+  }
+
+  // Demo Mode: preserve the existing local notifications.
   final ids = <String>[...generalNotificationIds];
 
   for (final event in registeredEvents) {
@@ -423,6 +430,10 @@ void clearStudentActivityData() {
   eventComments.clear();
   qrTokens.clear();
   attendanceCheckInTime.clear();
+
+  // Clear any cached server notice IDs so another student cannot
+  // inherit the previous account's notification badge count.
+  _liveAnnouncementIds.clear();
 
   // Reset read notification records for the next student.
   readNotificationIds.value = <String>{};
