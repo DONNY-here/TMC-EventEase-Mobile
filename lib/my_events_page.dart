@@ -1060,6 +1060,45 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView> {
                 foregroundColor: _navy),
           ),
         ),
+        // Open the real evaluation using THIS registration's event_reference.
+        // Laravel, not a local attendance flag, enforces check-in eligibility.
+        if (_str(record, 'event_reference').isNotEmpty) ...[
+          const SizedBox(height: 9),
+          SizedBox(width: double.infinity, height: 46,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) =>
+                    EvaluationPage.forLaravelRegistration(
+                      laravelRegistration: record,
+                    )),
+              ),
+              icon: const Icon(Icons.rate_review_outlined),
+              label: const Text('Evaluate / Edit Evaluation'),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text('Evaluation requires a verified Laravel Time In.',
+              style: TextStyle(fontSize: 11,
+                  color: scheme.onSurfaceVariant)),
+        ],
+        // Step 13: Real certificate status and authenticated PDF access.
+        // Laravel certificate listing is scoped to this student account.
+        if (_str(record, 'event_title').isNotEmpty) ...[
+          const SizedBox(height: 9),
+          SizedBox(width: double.infinity, height: 46,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => LaravelCertificatePage(
+                  eventTitle: _str(record, 'event_title'),
+                  eventDate: _str(record, 'event_date'),
+                ),
+              )),
+              icon: const Icon(Icons.workspace_premium_outlined),
+              label: const Text('View E-Certificate status'),
+            ),
+          ),
+        ],
         if (canCancel) ...[
           const SizedBox(height: 5),
           Align(alignment: Alignment.centerRight,

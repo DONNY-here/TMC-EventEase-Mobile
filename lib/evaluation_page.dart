@@ -6,9 +6,19 @@ part of 'main.dart';
 // ======================================================
 
 class EvaluationPage extends StatefulWidget {
-  final Event event;
+  // Existing demo/EventDetails callers remain unchanged.
+  final Event? event;
+  // Real API callers pass the actual student registration from Laravel.
+  // This avoids guessing the server's event_reference from a display title.
+  final Map<String, dynamic>? laravelRegistration;
 
-  const EvaluationPage({super.key, required this.event});
+  const EvaluationPage({super.key, required this.event})
+      : laravelRegistration = null;
+
+  const EvaluationPage.forLaravelRegistration({
+    super.key,
+    required this.laravelRegistration,
+  }) : event = null;
 
   @override
   State<EvaluationPage> createState() => _EvaluationPageState();
@@ -16,8 +26,230 @@ class EvaluationPage extends StatefulWidget {
 
 class _EvaluationPageState extends State<EvaluationPage> {
   int rating = 0;
-
   final TextEditingController commentController = TextEditingController();
+
+  // Live mode never uses Demo Mode attendance or locally created evaluations.
+  bool get _realApiMode => ApiConfig.useRealApi;
+  bool _loadingPrevious = false;
+  bool _submitting = false;
+  bool _hasSubmittedBefore = false;
+  String? _loadError;
+  String? _submitError;
+  String? _previousSubmissionDate;
+
+  String _registrationField(String field, [String fallback = '']) {
+    final value = widget.laravelRegistration?[field];
+    return value == null ? fallback : value.toString().trim();
+  }
+
+  String get _eventReference => _registrationField('event_reference');
+  String get _eventTitle => _realApiMode
+      ? _registrationField('event_title', widget.event?.title ?? 'Campus event')
+      : (widget.event?.title ?? 'Campus event');
+  String get _eventDate => _realApiMode
+      ? _registrationField('event_date', 'Event date unavailable')
+      : (widget.event?.date ?? 'Date unavailable');
+  String get _eventVenue => _realApiMode
+      ? _registrationField('venue', 'Venue not announced')
+      : (widget.event?.venue ?? 'Venue not announced');
+
+  Uri _endpoint(String path, {Map<String, String>? query}) {
+    final base = Uri.tryParse(ApiConfig.baseUrl.trim());
+    if (base == null || base.scheme != 'https' || base.host.isEmpty ||
+        base.userInfo.isNotEmpty ||
+        (base.path.isNotEmpty && base.path != '/')) {
+      throw StateError('The secure Laravel API URL is not configured.');
+    }
+    return base.replace(path: path, queryParameters: query, fragment: null);
+  }
+
+  Future<String> _studentToken() async {
+    final token = await authTokenStorage.readValidToken();
+    if (token == null || token.trim().isEmpty) {
+      throw StateError('Your login has expired. Please sign in again.');
+    }
+    return token;
+  }
+
+  String _responseError(http.Response response) {
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map) {
+        final errors = decoded['errors'];
+        if (errors is Map && errors.isNotEmpty) {
+          final first = errors.values.first;
+          if (first is List && first.isNotEmpty) return first.first.toString();
+          if (first is String && first.isNotEmpty) return first;
+        }
+        final message = decoded['message'];
+        if (message is String && message.trim().isNotEmpty) return message;
+      }
+    } catch (_) {}
+    return switch (response.statusCode) {
+      401 => 'Your login has expired. Please sign in again.',
+      403 => 'The student account is not authorized to use evaluations.',
+      404 => 'The Laravel evaluation endpoint was not found.',
+      422 => 'Laravel did not approve this evaluation. Check registration and Time In.',
+      _ => 'Laravel returned HTTP ${response.statusCode}.',
+    };
+  }
+
+  // GET /api/my/evaluations: loads ONLY evaluations belonging to this student.
+  // Supports Laravel's normal pagination and an unpaginated JSON list.
+  Future<void> _loadPreviousEvaluation() async {
+    if (!_realApiMode || _eventReference.isEmpty) return;
+    if (mounted) {
+      setState(() {
+        _loadingPrevious = true;
+        _loadError = null;
+      });
+    }
+    try {
+      final token = await _studentToken();
+      final headers = {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+        'ngrok-skip-browser-warning': 'true',
+      };
+      Map<String, dynamic>? previous;
+      var page = 1;
+      var lastPage = 1;
+      do {
+        final response = await http.get(
+          _endpoint('/api/my/evaluations', query: {'page': '$page'}),
+          headers: headers,
+        ).timeout(const Duration(seconds: 20));
+        if (response.statusCode != 200) {
+          throw StateError(_responseError(response));
+        }
+        final decoded = jsonDecode(response.body);
+        late final List<dynamic> rows;
+        if (decoded is List) {
+          rows = decoded;
+          lastPage = 1;
+        } else if (decoded is Map && decoded['data'] is List) {
+          rows = decoded['data'] as List;
+          lastPage = int.tryParse('${decoded['last_page'] ?? 1}') ?? 1;
+        } else {
+          throw const FormatException('Unexpected evaluation history format.');
+        }
+        if (lastPage > 50) {
+          throw const FormatException('Evaluation history has too many pages.');
+        }
+        for (final row in rows) {
+          if (row is! Map) {
+            throw const FormatException('Invalid evaluation record.');
+          }
+          final record = Map<String, dynamic>.from(row);
+          if (!record.containsKey('event_reference')) {
+            throw const FormatException('Evaluation record missing event_reference.');
+          }
+          if ('${record['event_reference'] ?? ''}'.trim() == _eventReference) {
+            previous = record;
+            break;
+          }
+        }
+        if (previous != null) break;
+        page++;
+      } while (page <= lastPage);
+      if (!mounted) return;
+      final existing = previous;
+      if (existing != null) {
+        final priorRating = int.tryParse('${existing['rating'] ?? ''}') ?? 0;
+        if (priorRating < 1 || priorRating > 5) {
+          throw const FormatException('Invalid rating returned by Laravel.');
+        }
+        setState(() {
+          rating = priorRating;
+          commentController.text = '${existing['comment'] ?? ''}';
+          _hasSubmittedBefore = true;
+          _previousSubmissionDate =
+              '${existing['submission_date'] ?? existing['submitted_at'] ?? existing['date'] ?? ''}'.trim();
+        });
+      } else {
+        setState(() {
+          _hasSubmittedBefore = false;
+          _previousSubmissionDate = null;
+        });
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error is StateError
+            ? error.message.toString()
+            : error is FormatException
+            ? error.message
+            : 'Could not load your evaluations. Check Laravel and your connection.';
+      });
+    } finally {
+      if (mounted) setState(() => _loadingPrevious = false);
+    }
+  }
+
+  Future<void> _submitLiveEvaluation() async {
+    if (_submitting || _loadingPrevious || _loadError != null) return;
+    if (_eventReference.isEmpty) {
+      showMessage(context, 'This registration is missing its Laravel event reference.');
+      return;
+    }
+    if (rating < 1 || rating > 5) {
+      showMessage(context, 'Please select a rating from 1 to 5 stars.');
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _submitError = null;
+    });
+    try {
+      final token = await _studentToken();
+      final response = await http.post(
+        _endpoint('/api/evaluations/submit'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({
+          'event_reference': _eventReference,
+          'rating': rating,
+          'comment': commentController.text.trim(),
+        }),
+      ).timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw StateError(_responseError(response));
+      }
+      // Only a successful Laravel response is evidence of a stored evaluation.
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Evaluation saved'),
+          content: Text(_hasSubmittedBefore
+              ? 'Laravel confirmed your updated evaluation.'
+              : 'Laravel confirmed your evaluation was submitted.'),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Done'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _submitError = error is StateError
+            ? error.message.toString()
+            : 'The submission could not be confirmed. Check My Evaluations '
+            'before trying again.';
+      });
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
 
   // ====================================================
   // THEME COLORS
@@ -44,17 +276,16 @@ class _EvaluationPageState extends State<EvaluationPage> {
 
   Color get _accent => _isDark ? yellow : navy;
 
-  // Evaluation is permitted only for a registered student whose
-  // attendance was recorded in this local demo session.
+  // Demo Mode alone uses local registration and attendance state.
+  // Laravel is the authority on check-in eligibility in Real API Mode.
   bool get _canEvaluate {
-    final key = eventKey(widget.event);
+    if (_realApiMode || widget.event == null) return false;
+    final event = widget.event!;
+    final key = eventKey(event);
     final isRegistered = registeredEvents.any(
           (registered) => eventKey(registered) == key,
     );
-
-    return !ApiConfig.useRealApi &&
-        isRegistered &&
-        attendanceStatus[key] == 'Present';
+    return isRegistered && attendanceStatus[key] == 'Present';
   }
 
   // ====================================================
@@ -65,10 +296,19 @@ class _EvaluationPageState extends State<EvaluationPage> {
   void initState() {
     super.initState();
 
-    final key = eventKey(widget.event);
-
-    rating = eventRatings[key] ?? 0;
-    commentController.text = eventComments[key] ?? '';
+    if (_realApiMode) {
+      // The live entry point must supply a verified Laravel registration.
+      if (widget.laravelRegistration != null && _eventReference.isNotEmpty) {
+        _loadingPrevious = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _loadPreviousEvaluation();
+        });
+      }
+    } else if (widget.event != null) {
+      final key = eventKey(widget.event!);
+      rating = eventRatings[key] ?? 0;
+      commentController.text = eventComments[key] ?? '';
+    }
   }
 
   // ====================================================
@@ -76,8 +316,12 @@ class _EvaluationPageState extends State<EvaluationPage> {
   // ORIGINAL SAVE LOGIC PRESERVED
   // ====================================================
 
-  void submitEvaluation() {
-    // Check again at submission time, in case attendance changed.
+  Future<void> submitEvaluation() async {
+    if (_realApiMode) {
+      await _submitLiveEvaluation();
+      return;
+    }
+    // Check again at submission time in local Demo Mode.
     if (!_canEvaluate) {
       showMessage(
         context,
@@ -92,7 +336,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
       return;
     }
 
-    final key = eventKey(widget.event);
+    final key = eventKey(widget.event!);
     eventRatings[key] = rating;
     eventComments[key] = commentController.text.trim();
 
@@ -153,7 +397,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.event.title,
+                  _eventTitle,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -167,8 +411,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
                 const SizedBox(height: 6),
 
                 Text(
-                  '${widget.event.date} • '
-                      '${widget.event.venue}',
+                  '$_eventDate • $_eventVenue',
                   style: TextStyle(
                     color: _secondaryText,
                     fontSize: 12,
@@ -231,7 +474,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
               return Tooltip(
                 message: '$star out of 5 stars',
                 child: GestureDetector(
-                  onTap: () {
+                  onTap: _submitting ? null : () {
                     setState(() {
                       rating = star;
                     });
@@ -388,7 +631,8 @@ class _EvaluationPageState extends State<EvaluationPage> {
                 const SizedBox(height: 10),
                 Text(
                   ApiConfig.useRealApi
-                      ? 'Online evaluation is not connected to Laravel yet.'
+                      ? 'Open an eligible registration from My Passes to evaluate '
+                      'it using Laravel. A valid event reference is required.'
                       : 'Register for this event and have your QR attendance '
                       'recorded as Present before completing the evaluation.',
                   textAlign: TextAlign.center,
@@ -408,13 +652,73 @@ class _EvaluationPageState extends State<EvaluationPage> {
     );
   }
 
+  // Real API feedback is distinct from Demo Mode evaluation state.
+  Widget _liveStatusCard() {
+    final blocked = _loadError != null;
+    final info = _loadingPrevious
+        ? 'Checking your previous evaluations in Laravel...'
+        : blocked
+        ? _loadError!
+        : _hasSubmittedBefore
+        ? 'Your previous evaluation was loaded from Laravel. '
+        'You can change the rating or comment and save again.'
+        : 'Laravel will confirm your registration and Time In before '
+        'accepting this evaluation.';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(15),
+      decoration: _cardDecoration(radius: 16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(blocked ? Icons.error_outline_rounded
+              : _hasSubmittedBefore ? Icons.edit_note_rounded
+              : Icons.verified_user_outlined,
+              color: _accent, size: 23),
+          const SizedBox(width: 9),
+          Expanded(child: Text(
+            _hasSubmittedBefore ? 'Edit your Laravel evaluation'
+                : 'Laravel evaluation',
+            style: TextStyle(color: _primaryText,
+                fontWeight: FontWeight.w800),
+          )),
+        ]),
+        const SizedBox(height: 7),
+        Text(info, style: TextStyle(color: _secondaryText, height: 1.45)),
+        if (_loadingPrevious) ...[
+          const SizedBox(height: 12),
+          const LinearProgressIndicator(),
+        ],
+        if (_previousSubmissionDate != null &&
+            _previousSubmissionDate!.isNotEmpty && !_loadingPrevious) ...[
+          const SizedBox(height: 7),
+          Text('Last submitted: $_previousSubmissionDate',
+              style: TextStyle(color: _secondaryText, fontSize: 11)),
+        ],
+        if (blocked) ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _loadingPrevious ? null : _loadPreviousEvaluation,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry loading evaluations'),
+          ),
+        ],
+      ]),
+    );
+  }
+
   // ====================================================
   // MAIN EVALUATION PAGE
   // ====================================================
 
   @override
   Widget build(BuildContext context) {
-    if (!_canEvaluate) return _lockedScreen();
+    if (_realApiMode) {
+      if (widget.laravelRegistration == null || _eventReference.isEmpty) {
+        return _lockedScreen();
+      }
+    } else if (!_canEvaluate) {
+      return _lockedScreen();
+    }
     return Scaffold(
       backgroundColor: _pageBackground,
 
@@ -438,6 +742,11 @@ class _EvaluationPageState extends State<EvaluationPage> {
                 children: [
                   _eventInformation(),
 
+                  if (_realApiMode) ...[
+                    const SizedBox(height: 16),
+                    _liveStatusCard(),
+                  ],
+
                   const SizedBox(height: 23),
 
                   _ratingCard(),
@@ -451,12 +760,22 @@ class _EvaluationPageState extends State<EvaluationPage> {
                   // ==================================
                   // SUBMIT EVALUATION
                   // ==================================
+                  if (_submitError != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(_submitError!,
+                          style: TextStyle(color: Theme.of(context)
+                              .colorScheme.error, height: 1.4)),
+                    ),
+                  ],
                   SizedBox(
                     width: double.infinity,
                     height: 56,
 
                     child: FilledButton.icon(
-                      onPressed: submitEvaluation,
+                      onPressed: _submitting ||
+                          (_realApiMode && (_loadingPrevious || _loadError != null))
+                          ? null : submitEvaluation,
 
                       style: FilledButton.styleFrom(
                         backgroundColor: yellow,
@@ -466,11 +785,17 @@ class _EvaluationPageState extends State<EvaluationPage> {
                         ),
                       ),
 
-                      icon: const Icon(Icons.send_rounded, size: 20),
+                      icon: _submitting
+                          ? const SizedBox(width: 20, height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.send_rounded, size: 20),
 
-                      label: const Text(
-                        'Submit Evaluation',
-                        style: TextStyle(
+                      label: Text(
+                        _submitting ? 'Saving to Laravel...'
+                            : _realApiMode && _hasSubmittedBefore
+                            ? 'Save Evaluation Changes'
+                            : 'Submit Evaluation',
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                         ),

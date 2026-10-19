@@ -767,7 +767,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(19),
                   onTap: () => Navigator.push(context,
-                      animatedRoute(const GeneralAssemblyFinePage())),
+                      animatedRoute(const RegisteredEventFinesPage())),
                   child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -777,11 +777,11 @@ class _DashboardPageState extends State<DashboardPage> {
                         const Icon(Icons.fact_check_outlined, color: Color(0xFF711B38), size: 27),
                         const SizedBox(width: 13),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('General Assembly • Attendance & Fines',
+                          Text('Registered Event Attendance & Fines',
                               style: TextStyle(color: c.onSurface, fontSize: 13,
                                   fontWeight: FontWeight.w800)),
                           const SizedBox(height: 4),
-                          Text('View attendance and fine details',
+                          Text('View fines for registered events',
                               style: TextStyle(color: c.onSurfaceVariant, fontSize: 11)),
                         ])),
                         Icon(Icons.chevron_right_rounded, color: c.onSurfaceVariant),

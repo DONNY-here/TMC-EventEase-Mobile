@@ -17,6 +17,8 @@ import 'services/demo_session_storage.dart';
 import 'app_theme_controller.dart';
 import 'eventease_profile_view.dart';
 
+import 'package:printing/printing.dart';
+
 
 part 'config_and_data.dart';
 part 'app.dart';
