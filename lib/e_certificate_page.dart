@@ -103,7 +103,7 @@ class ECertificatePage extends StatelessWidget {
                       const SizedBox(height: 9),
                       Text(
                         ApiConfig.useRealApi
-                            ? 'Official certificates are not connected to Laravel yet.'
+                            ? 'Official certificates are not connected.'
                             : 'Register for this event, complete QR attendance, '
                                   'and submit a 1–5 star evaluation to unlock '
                                   'your demo certificate preview.',
@@ -371,7 +371,7 @@ class _LaravelCertificatePageState extends State<LaravelCertificatePage> {
         origin.host.isEmpty ||
         origin.userInfo.isNotEmpty ||
         (origin.path.isNotEmpty && origin.path != '/')) {
-      throw StateError('The secure Laravel API URL is not configured.');
+      throw StateError('The secure API URL is not configured.');
     }
     return origin.replace(
       pathSegments: path,
@@ -413,7 +413,7 @@ class _LaravelCertificatePageState extends State<LaravelCertificatePage> {
         return payload['message'] as String;
       }
     } catch (_) {}
-    return 'Laravel returned HTTP ${response.statusCode}.';
+    return 'eventEase returned HTTP ${response.statusCode}.';
   }
 
   Future<void> _reload() async {
@@ -467,7 +467,7 @@ class _LaravelCertificatePageState extends State<LaravelCertificatePage> {
             ? error.message.toString()
             : error is FormatException
             ? error.message
-            : 'Unable to contact Laravel. Check ngrok and your connection.',
+            : 'Unable to contact. Check your connection.',
       );
     } finally {
       if (mounted && serial == _requestSerial) {
@@ -516,7 +516,7 @@ class _LaravelCertificatePageState extends State<LaravelCertificatePage> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Laravel returned multiple certificate records for this event title. '
+            'eventEase returned multiple certificate records for this event title. '
             'To prevent displaying the wrong certificate, PDF access is paused. '
             'Ask your web partner to include an event reference in certificate '
             'records and use that reference for exact matching.',
@@ -546,7 +546,7 @@ class _LaravelCertificatePageState extends State<LaravelCertificatePage> {
     if (reference.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Laravel did not provide a certificate reference.'),
+          content: Text('eventEase did not provide a certificate reference.'),
         ),
       );
       return;
@@ -577,7 +577,7 @@ class _LaravelCertificatePageState extends State<LaravelCertificatePage> {
           bytes[3] == 70 &&
           bytes[4] == 45; // %PDF-
       if (!isPdf) {
-        throw StateError('Laravel did not return a valid PDF document.');
+        throw StateError('eventEase did not return a valid PDF document.');
       }
       final filename =
           '${reference.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}.pdf';
@@ -645,14 +645,14 @@ class _LaravelCertificatePageState extends State<LaravelCertificatePage> {
 
     String explanation;
     if (issued) {
-      explanation = 'Laravel confirms that this certificate is issued.';
+      explanation = 'eventEase confirms that this certificate is issued.';
     } else if (pending) {
       explanation =
           'This certificate is awaiting administrator action. '
           'PDF access is unavailable until it is issued.';
     } else if (notEligible) {
       explanation =
-          'Laravel currently marks this certificate as not eligible. '
+          'eventEase currently marks this certificate as not eligible. '
           'Check with the event administrator if you believe your attendance '
           'and other requirements are complete.';
     } else if (record == null) {
@@ -661,7 +661,7 @@ class _LaravelCertificatePageState extends State<LaravelCertificatePage> {
           'This does not by itself mean you are ineligible.';
     } else {
       explanation =
-          'Certificate status reported by Laravel: $status. '
+          'Certificate status reported by Admin: $status. '
           'An official PDF is available only when the status is Issued.';
     }
 
@@ -718,7 +718,7 @@ class _LaravelCertificatePageState extends State<LaravelCertificatePage> {
           if (reason.isNotEmpty) ...[
             const SizedBox(height: 14),
             Text(
-              'Reason provided by Laravel',
+              'Reason provided by eventEase',
               style: TextStyle(fontWeight: FontWeight.w800, color: c.onSurface),
             ),
             const SizedBox(height: 5),
@@ -909,7 +909,7 @@ class _LaravelCertificatePageState extends State<LaravelCertificatePage> {
             const SizedBox(height: 18),
             Text(
               'Certificate availability is verified from your account’s '
-              'Laravel records. Only Issued certificates may be viewed '
+              'eventEase records. Only Issued certificates may be viewed '
               'or exported as official PDFs.',
               textAlign: TextAlign.center,
               style: TextStyle(color: c.onSurfaceVariant, fontSize: 12),

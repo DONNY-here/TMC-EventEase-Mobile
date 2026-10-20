@@ -101,10 +101,10 @@ class _EvaluationPageState extends State<EvaluationPage> {
     return switch (response.statusCode) {
       401 => 'Your login has expired. Please sign in again.',
       403 => 'The student account is not authorized to use evaluations.',
-      404 => 'The Laravel evaluation endpoint was not found.',
+      404 => 'The eventEase evaluation endpoint was not found.',
       422 =>
-        'Laravel did not approve this evaluation. Check registration and Time In.',
-      _ => 'Laravel returned HTTP ${response.statusCode}.',
+        'eventEase did not approve this evaluation. Check registration and Time In.',
+      _ => 'eventEase returned HTTP ${response.statusCode}.',
     };
   }
 
@@ -175,7 +175,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
       if (existing != null) {
         final priorRating = int.tryParse('${existing['rating'] ?? ''}') ?? 0;
         if (priorRating < 1 || priorRating > 5) {
-          throw const FormatException('Invalid rating returned by Laravel.');
+          throw const FormatException('Invalid rating.');
         }
         setState(() {
           _submitError = null;
@@ -201,7 +201,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
             ? error.message.toString()
             : error is FormatException
             ? error.message
-            : 'Could not load your evaluations. Check Laravel and your connection.';
+            : 'Could not load your evaluations. Check your connection.';
       });
     } finally {
       if (mounted) setState(() => _loadingPrevious = false);
@@ -217,7 +217,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
     if (_eventReference.isEmpty) {
       showMessage(
         context,
-        'This registration is missing its Laravel event reference.',
+        'This registration is missing its event reference.',
       );
       return;
     }
@@ -262,8 +262,8 @@ class _EvaluationPageState extends State<EvaluationPage> {
           title: const Text('Evaluation saved'),
           content: Text(
             _hasSubmittedBefore
-                ? 'Laravel confirmed your updated evaluation.'
-                : 'Laravel confirmed your evaluation was submitted.',
+                ? 'eventEase confirmed your updated evaluation.'
+                : 'eventEase confirmed your evaluation was submitted.',
           ),
           actions: [
             FilledButton(
@@ -710,7 +710,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
                             ? 'This registration has been cancelled. Only active, '
                                   'eligible registrations can be evaluated.'
                             : 'Open an eligible registration from My Passes to evaluate '
-                                  'it using Laravel. A valid event reference is required.')
+                                  'A valid event reference is required.')
                       : 'Register for this event and have your QR attendance '
                             'recorded as Present before completing the evaluation.',
                   textAlign: TextAlign.center,
@@ -734,13 +734,13 @@ class _EvaluationPageState extends State<EvaluationPage> {
   Widget _liveStatusCard() {
     final blocked = _loadError != null;
     final info = _loadingPrevious
-        ? 'Checking your previous evaluations in Laravel...'
+        ? 'Checking your previous evaluations...'
         : blocked
         ? _loadError!
         : _hasSubmittedBefore
-        ? 'Your previous evaluation was loaded from Laravel. '
+        ? 'Your previous evaluation was loaded. '
               'You can change the rating or comment and save again.'
-        : 'Laravel will confirm your registration and Time In before '
+        : 'eventEase will confirm your registration and Time In before '
               'accepting this evaluation.';
     return Container(
       width: double.infinity,
@@ -764,8 +764,8 @@ class _EvaluationPageState extends State<EvaluationPage> {
               Expanded(
                 child: Text(
                   _hasSubmittedBefore
-                      ? 'Edit your Laravel evaluation'
-                      : 'Laravel evaluation',
+                      ? 'Edit your eventEase evaluation'
+                      : 'eventEase evaluation',
                   style: TextStyle(
                     color: _primaryText,
                     fontWeight: FontWeight.w800,
@@ -900,7 +900,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
 
                       label: Text(
                         _submitting
-                            ? 'Saving to Laravel...'
+                            ? 'Saving...'
                             : _realApiMode && _hasSubmittedBefore
                             ? 'Save Evaluation Changes'
                             : 'Submit Evaluation',

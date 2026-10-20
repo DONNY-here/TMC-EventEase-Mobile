@@ -29,7 +29,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String _originalBlock = '';
   String _originalDepartment = '';
 
-  // Laravel department codes. Course options match the registration UI;
+  // r department codes. Course options match the registration UI;
   // AcademicStructure on Laravel remains the final authority.
   static const Map<String, String> _departmentNames = {
     'CCS': 'College of Computer Studies',
@@ -107,7 +107,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         base.host.isEmpty ||
         base.userInfo.isNotEmpty ||
         (base.path.isNotEmpty && base.path != '/')) {
-      throw StateError('The secure Laravel API URL is not configured.');
+      throw StateError('The secure API URL is not configured.');
     }
     return base.replace(path: path, query: null, fragment: null);
   }
@@ -173,7 +173,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (response.statusCode == 403) {
       return 'Only Student accounts can update profiles.';
     }
-    return 'Laravel returned HTTP ${response.statusCode}.';
+    return 'eventEase returned HTTP ${response.statusCode}.';
   }
 
   // Laravel accepts nullable block_no strings of up to 50 characters,
@@ -385,7 +385,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       );
       if (confirmedDepartment != department) {
         throw StateError(
-          'Laravel did not confirm the selected department. '
+          'eventEase did not confirm the selected department. '
           'Refresh the profile and verify department/course compatibility.',
         );
       }
@@ -400,7 +400,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         user['school_id'] ?? user['student_id'] ?? schoolId,
       );
       currentPasswordController.clear();
-      showMessage(context, 'Profile updated in Laravel.');
+      showMessage(context, 'Profile updated!');
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
@@ -456,7 +456,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           if (ApiConfig.useRealApi)
             IconButton(
               onPressed: (_loading || _saving) ? null : _fetchProfile,
-              tooltip: 'Refresh Laravel profile',
+              tooltip: 'Refresh profile',
               icon: const Icon(Icons.refresh),
             ),
         ],
@@ -694,15 +694,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 : null,
                             decoration: const InputDecoration(
                               labelText: 'Block',
-                              hintText: 'e.g. B, 12 or Block 12',
-                              helperText: 'Letters and numbers are accepted',
+                              hintText: 'e.g. 1',
+                              helperText: 'Enter your block number',
                               prefixIcon: Icon(Icons.groups_rounded),
                               border: OutlineInputBorder(),
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Course and year values must be accepted by Laravel. '
+                            'Course and year values must be accepted by eventEase. '
                             'The server validates all edits.',
                             style: TextStyle(
                               fontSize: 12,
@@ -757,7 +757,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                   : const Icon(Icons.save_rounded),
                               label: Text(
                                 _saving
-                                    ? 'Saving to Laravel...'
+                                    ? 'Saving...'
                                     : ApiConfig.useRealApi
                                     ? 'Save Changes'
                                     : 'Save Demo Changes',

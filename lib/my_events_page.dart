@@ -1412,7 +1412,7 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
           ),
           const SizedBox(height: 5),
           Text(
-            'Registration does not confirm payment. Payment verification is managed by Laravel.',
+            'Registration does not confirm payment.',
             style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
@@ -1468,7 +1468,7 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
             ),
             const SizedBox(height: 4),
             Text(
-              'Evaluation requires a verified Laravel Time In.',
+              'Evaluation requires a verified Time In.',
               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
             ),
           ],
