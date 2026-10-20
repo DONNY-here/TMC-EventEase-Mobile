@@ -43,6 +43,17 @@ class _EvaluationPageState extends State<EvaluationPage> {
   }
 
   String get _eventReference => _registrationField('event_reference');
+
+  // A cancelled registration must not be offered an evaluation in the UI.
+  // Laravel still performs the authoritative eligibility check on submit.
+  bool get _isCancelledRegistration {
+    final status = _registrationField(
+      'registration_status',
+      _registrationField('status'),
+    ).toLowerCase();
+    return status == 'cancelled' || status == 'canceled';
+  }
+
   String get _eventTitle => _realApiMode
       ? _registrationField('event_title', widget.event?.title ?? 'Campus event')
       : (widget.event?.title ?? 'Campus event');
@@ -171,6 +182,8 @@ class _EvaluationPageState extends State<EvaluationPage> {
         setState(() {
           _hasSubmittedBefore = false;
           _previousSubmissionDate = null;
+          rating = 0;
+          commentController.clear();
         });
       }
     } catch (error) {
@@ -189,6 +202,10 @@ class _EvaluationPageState extends State<EvaluationPage> {
 
   Future<void> _submitLiveEvaluation() async {
     if (_submitting || _loadingPrevious || _loadError != null) return;
+    if (_isCancelledRegistration) {
+      showMessage(context, 'Cancelled registrations cannot be evaluated.');
+      return;
+    }
     if (_eventReference.isEmpty) {
       showMessage(context, 'This registration is missing its Laravel event reference.');
       return;
@@ -347,6 +364,11 @@ class _EvaluationPageState extends State<EvaluationPage> {
 
     if (rating < 1 || rating > 5) {
       showMessage(context, 'Please select a rating from 1 to 5 stars.');
+      return;
+    }
+
+    if (commentController.text.trim().length > 300) {
+      showMessage(context, 'Feedback must not exceed 300 characters.');
       return;
     }
 
@@ -662,8 +684,11 @@ class _EvaluationPageState extends State<EvaluationPage> {
                 const SizedBox(height: 10),
                 Text(
                   ApiConfig.useRealApi
-                      ? 'Open an eligible registration from My Passes to evaluate '
-                      'it using Laravel. A valid event reference is required.'
+                      ? (_isCancelledRegistration
+                      ? 'This registration has been cancelled. Only active, '
+                      'eligible registrations can be evaluated.'
+                      : 'Open an eligible registration from My Passes to evaluate '
+                      'it using Laravel. A valid event reference is required.')
                       : 'Register for this event and have your QR attendance '
                       'recorded as Present before completing the evaluation.',
                   textAlign: TextAlign.center,
@@ -744,7 +769,9 @@ class _EvaluationPageState extends State<EvaluationPage> {
   @override
   Widget build(BuildContext context) {
     if (_realApiMode) {
-      if (widget.laravelRegistration == null || _eventReference.isEmpty) {
+      if (widget.laravelRegistration == null ||
+          _eventReference.isEmpty ||
+          _isCancelledRegistration) {
         return _lockedScreen();
       }
     } else if (!_canEvaluate) {
@@ -842,3 +869,4 @@ class _EvaluationPageState extends State<EvaluationPage> {
     );
   }
 }
+

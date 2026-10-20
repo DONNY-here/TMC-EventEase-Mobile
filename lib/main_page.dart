@@ -2,8 +2,7 @@
 part of 'main.dart';
 
 // ======================================================
-// MAIN PAGE / ROLE-BASED BOTTOM NAVIGATION
-// LIGHT AND DARK MODE SUPPORTED
+// TMC EVENTEASE - ROLE-BASED MAIN NAVIGATION
 // ======================================================
 
 class MainPage extends StatefulWidget {
@@ -16,50 +15,33 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int selectedIndex = 0;
 
-  bool get isScanner =>
-      savedUserRole == 'scanner' || savedUserRole == 'admin';
+  bool get isScanner {
+    final role = savedUserRole.trim().toLowerCase();
+    return role == 'scanner' || role == 'admin';
+  }
 
   @override
   Widget build(BuildContext context) {
-    // ==================================================
-    // LIGHT AND DARK MODE COLORS
-    // ==================================================
-
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
-    final isDarkMode = theme.brightness == Brightness.dark;
+    final selectedColor = isDark ? yellow : navy;
+    final unselectedColor = scheme.onSurfaceVariant;
+    final indicatorColor =
+    isDark ? const Color(0xFF283F60) : lightNavy;
 
-    final Color navigationBackground = colorScheme.surface;
-
-    final Color selectedIconColor =
-    isDarkMode ? yellow : navy;
-
-    final Color unselectedIconColor =
-        colorScheme.onSurfaceVariant;
-
-    final Color navigationIndicatorColor = isDarkMode
-        ? const Color(0xFF283F60)
-        : lightNavy;
-
-    final Color navigationBorderColor =
-        colorScheme.outlineVariant;
-
-    // ==================================================
-    // ROLE-BASED PAGES
-    // ==================================================
-
-    final List<Widget> pages = isScanner
-        ? const [
-      QRCodePage(),
-      ScannerProfilePage(),
+    final pages = isScanner
+        ? <Widget>[
+      const QRCodePage(),
+      const ScannerProfilePage(),
     ]
-        : [
+        : <Widget>[
       DashboardPage(
         onTabSelected: (index) {
-          setState(() {
-            selectedIndex = index;
-          });
+          if (index >= 0 && index < 4) {
+            setState(() => selectedIndex = index);
+          }
         },
       ),
       const EventsPage(),
@@ -67,173 +49,107 @@ class _MainPageState extends State<MainPage> {
       const ProfilePage(),
     ];
 
-    // ==================================================
-    // ROLE-BASED NAVIGATION DESTINATIONS
-    // ==================================================
-
-    final List<NavigationDestination> destinations = isScanner
-        ? [
-      NavigationDestination(
-        icon: Icon(
-          Icons.qr_code_scanner_outlined,
-          color: unselectedIconColor,
-        ),
-        selectedIcon: Icon(
-          Icons.qr_code_scanner_rounded,
-          color: selectedIconColor,
-        ),
+    final destinations = isScanner
+        ? <NavigationDestination>[
+      const NavigationDestination(
+        icon: Icon(Icons.qr_code_scanner_outlined),
+        selectedIcon: Icon(Icons.qr_code_scanner_rounded),
         label: 'Scan QR',
       ),
-      NavigationDestination(
-        icon: Icon(
-          Icons.person_outline,
-          color: unselectedIconColor,
-        ),
-        selectedIcon: Icon(
-          Icons.person_rounded,
-          color: selectedIconColor,
-        ),
+      const NavigationDestination(
+        icon: Icon(Icons.person_outline),
+        selectedIcon: Icon(Icons.person_rounded),
         label: 'Profile',
       ),
     ]
-        : [
-      NavigationDestination(
-        icon: Icon(
-          Icons.home_outlined,
-          color: unselectedIconColor,
-        ),
-        selectedIcon: Icon(
-          Icons.home_rounded,
-          color: selectedIconColor,
-        ),
+        : <NavigationDestination>[
+      const NavigationDestination(
+        icon: Icon(Icons.home_outlined),
+        selectedIcon: Icon(Icons.home_rounded),
         label: 'Home',
       ),
-      NavigationDestination(
-        icon: Icon(
-          Icons.event_outlined,
-          color: unselectedIconColor,
-        ),
-        selectedIcon: Icon(
-          Icons.event_rounded,
-          color: selectedIconColor,
-        ),
+      const NavigationDestination(
+        icon: Icon(Icons.event_outlined),
+        selectedIcon: Icon(Icons.event_rounded),
         label: 'Events',
       ),
-      NavigationDestination(
-        icon: Icon(
-          Icons.confirmation_num_outlined,
-          color: unselectedIconColor,
-        ),
-        selectedIcon: Icon(
-          Icons.confirmation_num_rounded,
-          color: selectedIconColor,
-        ),
+      const NavigationDestination(
+        icon: Icon(Icons.confirmation_num_outlined),
+        selectedIcon: Icon(Icons.confirmation_num_rounded),
         label: 'My Passes',
       ),
-      NavigationDestination(
-        icon: Icon(
-          Icons.person_outline,
-          color: unselectedIconColor,
-        ),
-        selectedIcon: Icon(
-          Icons.person_rounded,
-          color: selectedIconColor,
-        ),
+      const NavigationDestination(
+        icon: Icon(Icons.person_outline),
+        selectedIcon: Icon(Icons.person_rounded),
         label: 'Profile',
       ),
     ];
 
-    // ==================================================
-    // SAFE NAVIGATION INDEX
-    // ==================================================
-
-    final safeIndex =
-    selectedIndex < pages.length ? selectedIndex : 0;
-
-    // ==================================================
-    // MAIN SCAFFOLD
-    // ==================================================
+    final safeIndex = selectedIndex >= 0 &&
+        selectedIndex < pages.length
+        ? selectedIndex
+        : 0;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
 
-      // ================================================
-      // PAGE CONTENT
-      // ================================================
-
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: KeyedSubtree(
-          key: ValueKey('${savedUserRole}_$safeIndex'),
-          child: pages[safeIndex],
-        ),
+      body: IndexedStack(
+        index: safeIndex,
+        children: pages,
       ),
-
-      // ================================================
-      // LIGHT AND DARK MODE BOTTOM NAVIGATION
-      // ================================================
 
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: navigationBackground,
-
+          color: scheme.surface,
           border: Border(
             top: BorderSide(
-              color: navigationBorderColor,
+              color: scheme.outlineVariant,
               width: 0.5,
             ),
           ),
-
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(
-                alpha: isDarkMode ? 0.22 : 0.06,
+                alpha: isDark ? 0.22 : 0.06,
               ),
               blurRadius: 18,
               offset: const Offset(0, -5),
             ),
           ],
         ),
-
         child: NavigationBarTheme(
           data: NavigationBarThemeData(
             labelTextStyle:
             WidgetStateProperty.resolveWith<TextStyle>(
                   (states) {
-                final isSelected =
+                final selected =
                 states.contains(WidgetState.selected);
 
                 return TextStyle(
-                  color: isSelected
-                      ? selectedIconColor
-                      : unselectedIconColor,
+                  color: selected
+                      ? selectedColor
+                      : unselectedColor,
                   fontSize: 12,
-                  fontWeight: isSelected
+                  fontWeight: selected
                       ? FontWeight.w700
                       : FontWeight.w500,
                 );
               },
             ),
           ),
-
           child: NavigationBar(
             height: 68,
             selectedIndex: safeIndex,
-
-            backgroundColor: navigationBackground,
+            backgroundColor: scheme.surface,
             surfaceTintColor: Colors.transparent,
-
-            indicatorColor: navigationIndicatorColor,
-
+            indicatorColor: indicatorColor,
             animationDuration:
             const Duration(milliseconds: 250),
-
             onDestinationSelected: (index) {
-              setState(() {
-                selectedIndex = index;
-              });
+              if (index != safeIndex) {
+                setState(() => selectedIndex = index);
+              }
             },
-
             destinations: destinations,
           ),
         ),

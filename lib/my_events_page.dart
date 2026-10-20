@@ -798,7 +798,8 @@ class _LaravelMyPassesView extends StatefulWidget {
   State<_LaravelMyPassesView> createState() => _LaravelMyPassesViewState();
 }
 
-class _LaravelMyPassesViewState extends State<_LaravelMyPassesView> {
+class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
+    with WidgetsBindingObserver {
   static const Color _navy = Color(0xFF102A4C);
   static const Color _blue = Color(0xFF215B99);
   static const Color _gold = Color(0xFFFFCB4D);
@@ -815,9 +816,23 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _load();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted && !_loading && !_loadingMore) {
+      _load();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   static String _str(Map<String, dynamic> record, String field,
@@ -875,7 +890,7 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView> {
     }).toList();
     switch (_filter) {
       case 'Upcoming':
-        return matching.where((item) => !_isPast(item) && !_isCancelled(item)).toList();
+        return matching.where((item) => _eventDay(item) != null && !_isPast(item) && !_isCancelled(item)).toList();
       case 'Attended':
         return matching.where((item) => !_isCancelled(item) && _attended(item)).toList();
       case 'Past':
@@ -888,7 +903,7 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView> {
   int _count(String filter) {
     switch (filter) {
       case 'Upcoming':
-        return _records.where((r) => !_isPast(r) && !_isCancelled(r)).length;
+        return _records.where((r) => _eventDay(r) != null && !_isPast(r) && !_isCancelled(r)).length;
       case 'Attended':
         return _records.where((r) => !_isCancelled(r) && _attended(r)).length;
       case 'Past':
@@ -977,7 +992,13 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView> {
       if (!mounted || serial != _requestSerial) return;
       setState(() {
         if (!more) _records.clear();
-        _records.addAll(rows);
+        final existingIds = _records.map((item) => _str(item, 'id')).toSet();
+        for (final row in rows) {
+          final id = _str(row, 'id');
+          if (id.isEmpty || existingIds.add(id)) {
+            _records.add(row);
+          }
+        }
         _page = wantedPage;
         _lastPage = last < wantedPage ? wantedPage : last;
         _error = null;
@@ -1145,13 +1166,16 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView> {
           const SizedBox(height: 9),
           SizedBox(width: double.infinity, height: 46,
             child: OutlinedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) =>
-                    EvaluationPage.forLaravelRegistration(
-                      laravelRegistration: record,
-                    )),
-              ),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) =>
+                      EvaluationPage.forLaravelRegistration(
+                        laravelRegistration: record,
+                      )),
+                );
+                if (mounted) await _load();
+              },
               icon: const Icon(Icons.rate_review_outlined),
               label: const Text('Evaluate / Edit Evaluation'),
             ),

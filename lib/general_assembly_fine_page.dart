@@ -73,11 +73,11 @@ class _RegisteredEventFinesPageState extends State<RegisteredEventFinesPage> {
   Uri _uri(String path, {int? page}) {
     final base = Uri.tryParse(ApiConfig.baseUrl.trim());
     if (base == null ||
-        !['https', 'http'].contains(base.scheme) ||
+        base.scheme != 'https' ||
         base.host.isEmpty ||
         base.userInfo.isNotEmpty ||
         (base.path.isNotEmpty && base.path != '/')) {
-      throw StateError('The Laravel API address is not configured correctly.');
+      throw StateError('A secure HTTPS Laravel API address is required.');
     }
     return base.replace(
       path: path,
@@ -126,22 +126,25 @@ class _RegisteredEventFinesPageState extends State<RegisteredEventFinesPage> {
     }).toList();
   }
 
-  Future<List<Map<String, dynamic>>> _getRegistrations(String token) async {
+  // Load every page of a student-owned Laravel collection. Never calculate
+  // financial totals from only the first page of a paginated response.
+  Future<List<Map<String, dynamic>>> _getAllPages(
+      String path,
+      String token,
+      ) async {
     final all = <Map<String, dynamic>>[];
     var page = 1;
     while (true) {
-      final response = await _getJson('/api/registrations/my', token, page: page);
+      final response = await _getJson(path, token, page: page);
       if (response is! Map) {
-        throw const FormatException('The registrations response is not paginated.');
+        throw const FormatException('Laravel returned an unexpected paginated response.');
       }
       all.addAll(_rows(response));
-      final pages = int.tryParse('${response['last_page'] ?? 1}') ?? 1;
-      if (pages > 50) {
-        throw StateError('Too many registration pages. Please contact support.');
+      final pages = int.tryParse('${response['last_page'] ?? 1}');
+      if (pages == null || pages < 1 || pages > 50) {
+        throw const FormatException('Invalid pagination information from Laravel.');
       }
-      if (page >= pages) {
-        break;
-      }
+      if (page >= pages) break;
       page++;
     }
     return all;
@@ -204,13 +207,13 @@ class _RegisteredEventFinesPageState extends State<RegisteredEventFinesPage> {
 
       // BOTH are mandatory: do not show fines until their event matches a
       // server-confirmed registration for this authenticated student.
-      final registrations = await _getRegistrations(token);
+      final registrations = await _getAllPages('/api/registrations/my', token);
       if (registrations.any((reg) => _text(reg['event_reference']).isEmpty)) {
         throw const FormatException(
           'A registered event has no event_reference; cannot verify fine ownership.',
         );
       }
-      final allFines = _rows(await _getJson('/api/my/fines', token));
+      final allFines = await _getAllPages('/api/my/fines', token);
       if (allFines.any((fine) => _fineEventReference(fine).isEmpty)) {
         throw const FormatException(
           'A fine record has no event reference; its registration cannot be verified.',

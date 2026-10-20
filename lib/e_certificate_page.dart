@@ -460,15 +460,49 @@ class _LaravelCertificatePageState extends State<LaravelCertificatePage> {
   _value(item, 'event').toLowerCase() ==
       widget.eventTitle.trim().toLowerCase()).toList();
 
+  // Do not select an arbitrary certificate when multiple records use
+  // the same event title. The API should supply an event reference so
+  // students can open the intended certificate unambiguously.
   Map<String, dynamic>? get _selected {
     final matches = _matching;
-    if (matches.isEmpty) return null;
-    for (final status in ['issued', 'pending', 'not eligible']) {
-      for (final item in matches) {
-        if (_value(item, 'status').toLowerCase() == status) return item;
-      }
-    }
-    return matches.first;
+    return matches.length == 1 ? matches.single : null;
+  }
+
+  bool get _ambiguousCertificate => _matching.length > 1;
+
+  Widget _ambiguousCard() {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, color: colors.error, size: 30),
+          const SizedBox(height: 12),
+          const Text('Certificate selection needs verification',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+          const SizedBox(height: 8),
+          Text(
+            'Laravel returned multiple certificate records for this event title. '
+                'To prevent displaying the wrong certificate, PDF access is paused. '
+                'Ask your web partner to include an event reference in certificate '
+                'records and use that reference for exact matching.',
+            style: TextStyle(color: colors.onSurfaceVariant, height: 1.5),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _reload,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Refresh certificates'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadPdf(Map<String, dynamic> record,
@@ -770,8 +804,10 @@ class _LaravelCertificatePageState extends State<LaravelCertificatePage> {
                     icon: const Icon(Icons.refresh_rounded),
                     label: const Text('Retry')),
               ])
-            else
-              _statusCard(_selected),
+            else if (_ambiguousCertificate)
+                _ambiguousCard()
+              else
+                _statusCard(_selected),
             const SizedBox(height: 18),
             Text('Certificate availability is verified from your account’s '
                 'Laravel records. Only Issued certificates may be viewed '
@@ -807,3 +843,4 @@ class _LaravelCertificatePdfPreview extends StatelessWidget {
     );
   }
 }
+
