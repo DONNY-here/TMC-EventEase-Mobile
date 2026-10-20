@@ -68,8 +68,6 @@ String? normalizeTmcBlock(Object? input) {
   return 'Block $number';
 }
 
-
-
 bool isValidEmail(String email) {
   final value = email.trim();
   return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value);
@@ -234,7 +232,7 @@ const List<Event> eventList = [
     time: '9:00 AM - 12:00 PM',
     venue: 'TMC Auditorium',
     description:
-    'A technology seminar where students can learn '
+        'A technology seminar where students can learn '
         'about the latest trends in information technology.',
 
     scope: 'School-Wide',
@@ -272,7 +270,7 @@ const List<Event> eventList = [
     time: '8:00 AM - 5:00 PM',
     venue: 'TMC Covered Court',
     description:
-    'An esports competition for students from different departments.',
+        'An esports competition for students from different departments.',
 
     scope: 'School-Wide',
     department: 'All Departments',
@@ -284,7 +282,6 @@ const List<Event> eventList = [
     currentParticipants: 91,
     registrationDeadline: 'September 18, 2026',
   ),
-
 
   Event(
     title: 'TMC Leadership Training',
@@ -307,14 +304,13 @@ const List<Event> eventList = [
     registrationOpen: true,
   ),
 
-
   Event(
     title: 'CCS Programming Competition',
     date: 'November 10, 2026',
     time: '8:00 AM - 12:00 PM',
     venue: 'TMC Computer Laboratory',
     description:
-    'A programming competition exclusively for '
+        'A programming competition exclusively for '
         'College of Computer Studies students.',
 
     scope: 'Department-Specific',
@@ -361,7 +357,7 @@ final List<ScanHistory> scanHistory = [];
 // ======================================================
 
 final ValueNotifier<Set<String>> readNotificationIds =
-ValueNotifier<Set<String>>(<String>{});
+    ValueNotifier<Set<String>>(<String>{});
 
 const List<String> generalNotificationIds = [
   'announcement_techtalk',

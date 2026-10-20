@@ -69,11 +69,12 @@ class StudentQrPassPage extends StatelessWidget {
 
     // Demo credentials are available only for a locally registered event.
     // Never generate or display demo credentials in Real API Mode.
-    final registered = !ApiConfig.useRealApi &&
+    final registered =
+        !ApiConfig.useRealApi &&
         registeredEvents.any((item) => eventKey(item) == key);
     final token = registered ? qrTokens[key] : null;
-    final validToken = token != null &&
-        RegExp(r'^[A-Za-z0-9]{40}$').hasMatch(token);
+    final validToken =
+        token != null && RegExp(r'^[A-Za-z0-9]{40}$').hasMatch(token);
     final qrData = validToken ? '$studentQrPrefix$token' : '';
 
     // ==================================================
@@ -159,7 +160,7 @@ class StudentQrPassPage extends StatelessWidget {
 
                   Text(
                     'No active QR pass is available '
-                        'for this event.',
+                    'for this event.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: secondaryText,
@@ -307,7 +308,7 @@ class StudentQrPassPage extends StatelessWidget {
                     // ==================================
                     Text(
                       'Present this QR code to '
-                          'authorized event personnel.',
+                      'authorized event personnel.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: secondaryText,

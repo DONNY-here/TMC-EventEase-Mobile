@@ -55,7 +55,7 @@ class _QRCodePageState extends State<QRCodePage> {
 
   bool get canScanAttendance =>
       savedUserRole.trim().toLowerCase() == 'scanner' ||
-          savedUserRole.trim().toLowerCase() == 'admin';
+      savedUserRole.trim().toLowerCase() == 'admin';
 
   String get scannerDisplayName =>
       savedName.trim().isNotEmpty ? savedName : demoScannerName;
@@ -136,12 +136,12 @@ class _QRCodePageState extends State<QRCodePage> {
     boxShadow: _isDark
         ? null
         : [
-      const BoxShadow(
-        color: Color(0x0C15283E),
-        blurRadius: 22,
-        offset: Offset(0, 8),
-      ),
-    ],
+            const BoxShadow(
+              color: Color(0x0C15283E),
+              blurRadius: 22,
+              offset: Offset(0, 8),
+            ),
+          ],
   );
 
   // --------------------------------------------------------------
@@ -247,11 +247,11 @@ class _QRCodePageState extends State<QRCodePage> {
   }
 
   Future<dynamic> _liveRequest(
-      String method,
-      String path, {
-        Object? body,
-        Map<String, String>? query,
-      }) async {
+    String method,
+    String path, {
+    Object? body,
+    Map<String, String>? query,
+  }) async {
     final token = await authTokenStorage.readValidToken();
     if (token == null || token.trim().isEmpty) {
       throw StateError('Your scanner login expired. Please sign in again.');
@@ -364,7 +364,7 @@ class _QRCodePageState extends State<QRCodePage> {
       setState(() {
         _liveLoadingSessions = false;
         _liveSessionError =
-        'This event has no check-in token. An administrator '
+            'This event has no check-in token. An administrator '
             'must generate its check-in poster in Laravel first.';
       });
       return;
@@ -409,7 +409,7 @@ class _QRCodePageState extends State<QRCodePage> {
       if (mounted) {
         setState(() {
           _liveHistoryError =
-          'Personal scan history is available to assigned Scanner accounts.';
+              'Personal scan history is available to assigned Scanner accounts.';
           _liveHistory = [];
         });
       }
@@ -528,10 +528,10 @@ class _QRCodePageState extends State<QRCodePage> {
           : (skipped is List && skipped.isNotEmpty);
       final successful =
           attendanceMap != null &&
-              !hasSkipped &&
-              (direction == 'in'
-                  ? attendanceMap['time_in'] != null
-                  : attendanceMap['time_out'] != null);
+          !hasSkipped &&
+          (direction == 'in'
+              ? attendanceMap['time_in'] != null
+              : attendanceMap['time_out'] != null);
       final registration = payload['registration'];
       final student = payload['student'];
       final identity = registration is Map ? registration : student;
@@ -569,7 +569,7 @@ class _QRCodePageState extends State<QRCodePage> {
       final isDuplicate = message.toLowerCase().contains('already');
       final isWrongEvent =
           message.toLowerCase().contains('not registered') ||
-              message.toLowerCase().contains('does not belong');
+          message.toLowerCase().contains('does not belong');
       // A transport failure never confirms or rejects attendance.
       // Keep the scan paused until the operator checks the server record.
       final isConnectionError =
@@ -584,7 +584,7 @@ class _QRCodePageState extends State<QRCodePage> {
             : 'verification_error',
         message: isConnectionError
             ? 'Could not confirm the scan with Laravel. Attendance status is unknown. '
-            'Check server scan history before trying again to avoid duplicates.'
+                  'Check server scan history before trying again to avoid duplicates.'
             : message,
       );
     }
@@ -683,14 +683,14 @@ class _QRCodePageState extends State<QRCodePage> {
       }
 
       final registeredForEvent = registeredEvents.any(
-            (entry) => eventKey(entry) == key,
+        (entry) => eventKey(entry) == key,
       );
       final tokenMatchesEvent = registeredForEvent && qrTokens[key] == token;
 
       if (!tokenMatchesEvent) {
         final belongsToAnotherEvent = qrTokens.entries.any(
-              (entry) =>
-          entry.key != key &&
+          (entry) =>
+              entry.key != key &&
               entry.value == token &&
               registeredEvents.any((item) => eventKey(item) == entry.key),
         );
@@ -813,7 +813,8 @@ class _QRCodePageState extends State<QRCodePage> {
       setState(() {
         processingScan = true;
         lastResultStatus = 'connection_error';
-        lastMessage = 'Camera could not start. Check camera permission and try again.';
+        lastMessage =
+            'Camera could not start. Check camera permission and try again.';
       });
     }
   }
@@ -1057,84 +1058,84 @@ class _QRCodePageState extends State<QRCodePage> {
   Widget _eventPicker() => ApiConfig.useRealApi
       ? _liveEventPicker()
       : Container(
-    padding: const EdgeInsets.all(17),
-    decoration: _panelDecoration(),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionHeader('01', 'Choose an event', hint: 'Required'),
-        const SizedBox(height: 6),
-        Text(
-          'Select the event before scanning a student pass.',
-          style: TextStyle(color: _muted, fontSize: 12.5),
-        ),
-        const SizedBox(height: 15),
-        DropdownButtonFormField<Event>(
-          key: ValueKey(selectedEvent),
-          initialValue: selectedEvent,
-          isExpanded: true,
-          hint: const Text('Select campus event'),
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.event_available_outlined),
-            filled: true,
-            fillColor: _isDark
-                ? const Color(0xFF1E324E)
-                : const Color(0xFFF6F8FC),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 15,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide(color: _border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide(color: _border),
-            ),
-          ),
-          items: eventList
-              .map(
-                (event) => DropdownMenuItem<Event>(
-              value: event,
-              child: Text(
-                event.title,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          )
-              .toList(),
-          onChanged: isVerifyingScan
-              ? null
-              : (value) {
-            if (value == null) return;
-            setState(() => selectedEvent = value);
-            _scanAgain();
-          },
-        ),
-        if (selectedEvent != null) ...[
-          const SizedBox(height: 12),
-          Row(
+          padding: const EdgeInsets.all(17),
+          decoration: _panelDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.check_circle_rounded,
-                color: Color(0xFF19966B),
-                size: 17,
+              _sectionHeader('01', 'Choose an event', hint: 'Required'),
+              const SizedBox(height: 6),
+              Text(
+                'Select the event before scanning a student pass.',
+                style: TextStyle(color: _muted, fontSize: 12.5),
               ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  '${selectedEvent!.date}  ·  ${selectedEvent!.venue}',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: _muted, fontSize: 11.5),
+              const SizedBox(height: 15),
+              DropdownButtonFormField<Event>(
+                key: ValueKey(selectedEvent),
+                initialValue: selectedEvent,
+                isExpanded: true,
+                hint: const Text('Select campus event'),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.event_available_outlined),
+                  filled: true,
+                  fillColor: _isDark
+                      ? const Color(0xFF1E324E)
+                      : const Color(0xFFF6F8FC),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 15,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide(color: _border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide(color: _border),
+                  ),
                 ),
+                items: eventList
+                    .map(
+                      (event) => DropdownMenuItem<Event>(
+                        value: event,
+                        child: Text(
+                          event.title,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: isVerifyingScan
+                    ? null
+                    : (value) {
+                        if (value == null) return;
+                        setState(() => selectedEvent = value);
+                        _scanAgain();
+                      },
               ),
+              if (selectedEvent != null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xFF19966B),
+                      size: 17,
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        '${selectedEvent!.date}  ·  ${selectedEvent!.venue}',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: _muted, fontSize: 11.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
-        ],
-      ],
-    ),
-  );
+        );
 
   Widget _liveEventPicker() {
     final ref = _liveText(_liveSelectedEvent?['reference']);
@@ -1178,7 +1179,7 @@ class _QRCodePageState extends State<QRCodePage> {
             const SizedBox(height: 12),
             Text(
               'No approved events assigned to this scanner. '
-                  'Ask an administrator to assign an event and prepare its sessions.',
+              'Ask an administrator to assign an event and prepare its sessions.',
               style: TextStyle(color: _muted, fontSize: 12),
             ),
           ],
@@ -1201,29 +1202,29 @@ class _QRCodePageState extends State<QRCodePage> {
             items: _liveEvents
                 .map(
                   (e) => DropdownMenuItem<String>(
-                value: _liveText(e['reference']),
-                child: Text(
-                  _liveText(e['title'], 'Untitled event'),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            )
+                    value: _liveText(e['reference']),
+                    child: Text(
+                      _liveText(e['title'], 'Untitled event'),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
                 .toList(),
             onChanged: _liveLoadingEvents || isVerifyingScan
                 ? null
                 : (selected) {
-              if (selected == null) return;
-              final matches = _liveEvents
-                  .where((e) => _liveText(e['reference']) == selected)
-                  .toList();
-              if (matches.isNotEmpty) _selectLiveEvent(matches.first);
-            },
+                    if (selected == null) return;
+                    final matches = _liveEvents
+                        .where((e) => _liveText(e['reference']) == selected)
+                        .toList();
+                    if (matches.isNotEmpty) _selectLiveEvent(matches.first);
+                  },
           ),
           if (_liveSelectedEvent != null) ...[
             const SizedBox(height: 11),
             Text(
               '${_liveText(_liveSelectedEvent?['event_date'], 'Date unavailable')} '
-                  ' • ${_liveText(_liveSelectedEvent?['venue'], 'Venue unavailable')}',
+              ' • ${_liveText(_liveSelectedEvent?['venue'], 'Venue unavailable')}',
               style: TextStyle(color: _muted, fontSize: 12),
             ),
             if (_liveLoadingSessions)
@@ -1263,23 +1264,23 @@ class _QRCodePageState extends State<QRCodePage> {
                   items: _liveSessions
                       .map(
                         (s) => DropdownMenuItem<int>(
-                      value: _liveInt(s['id']),
-                      enabled: s['open'] == true,
-                      child: Text(
-                        '${_liveText(s['label'], 'Session')} '
+                          value: _liveInt(s['id']),
+                          enabled: s['open'] == true,
+                          child: Text(
+                            '${_liveText(s['label'], 'Session')} '
                             '(${_liveText(s['session_date'])})'
                             '${s['open'] == true ? ' • OPEN' : ' • CLOSED'}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
                       .toList(),
                   onChanged: isVerifyingScan
                       ? null
                       : (value) {
-                    setState(() => _liveSessionId = value);
-                    if (_canLiveScan) _scanAgain();
-                  },
+                          setState(() => _liveSessionId = value);
+                          if (_canLiveScan) _scanAgain();
+                        },
                 ),
               if (_liveSessions.isNotEmpty && _liveSessionId == null)
                 Padding(
@@ -1301,9 +1302,9 @@ class _QRCodePageState extends State<QRCodePage> {
                     onSelected: isVerifyingScan
                         ? null
                         : (_) {
-                      setState(() => _liveDirection = 'in');
-                      _scanAgain();
-                    },
+                            setState(() => _liveDirection = 'in');
+                            _scanAgain();
+                          },
                   ),
                   ChoiceChip(
                     label: const Text('Time Out'),
@@ -1311,9 +1312,9 @@ class _QRCodePageState extends State<QRCodePage> {
                     onSelected: isVerifyingScan
                         ? null
                         : (_) {
-                      setState(() => _liveDirection = 'out');
-                      _scanAgain();
-                    },
+                            setState(() => _liveDirection = 'out');
+                            _scanAgain();
+                          },
                   ),
                 ],
               ),
@@ -1403,8 +1404,8 @@ class _QRCodePageState extends State<QRCodePage> {
                       ),
                       child: Text(
                         (ApiConfig.useRealApi
-                            ? !_canLiveScan
-                            : selectedEvent == null)
+                                ? !_canLiveScan
+                                : selectedEvent == null)
                             ? 'SELECT EVENT AND OPEN SESSION'
                             : lastMessage != null
                             ? 'SCANNER PAUSED'
@@ -1420,8 +1421,8 @@ class _QRCodePageState extends State<QRCodePage> {
                   ),
                 ),
                 if ((ApiConfig.useRealApi
-                    ? !_canLiveScan
-                    : selectedEvent == null) ||
+                        ? !_canLiveScan
+                        : selectedEvent == null) ||
                     lastMessage != null ||
                     isVerifyingScan)
                   Positioned.fill(
@@ -1431,49 +1432,49 @@ class _QRCodePageState extends State<QRCodePage> {
                         child: Center(
                           child: isVerifyingScan
                               ? Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(
-                                color: Color(0xFFFFD46C),
-                              ),
-                              SizedBox(height: 14),
-                              Text(
-                                ApiConfig.useRealApi
-                                    ? 'Verifying with Laravel...'
-                                    : 'Verifying demo QR...',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          )
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircularProgressIndicator(
+                                      color: Color(0xFFFFD46C),
+                                    ),
+                                    SizedBox(height: 14),
+                                    Text(
+                                      ApiConfig.useRealApi
+                                          ? 'Verifying with Laravel...'
+                                          : 'Verifying demo QR...',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                )
                               : Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                lastMessage == null
-                                    ? Icons.event_note_rounded
-                                    : Icons.pause_circle_outline_rounded,
-                                color: const Color(0xFFFFD46C),
-                                size: 42,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                lastMessage == null
-                                    ? (ApiConfig.useRealApi
-                                    ? 'Select an event and open session above'
-                                    : 'Choose an event above')
-                                    : 'Review the result below',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      lastMessage == null
+                                          ? Icons.event_note_rounded
+                                          : Icons.pause_circle_outline_rounded,
+                                      color: const Color(0xFFFFD46C),
+                                      size: 42,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      lastMessage == null
+                                          ? (ApiConfig.useRealApi
+                                                ? 'Select an event and open session above'
+                                                : 'Choose an event above')
+                                          : 'Review the result below',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                     ),
@@ -1514,7 +1515,7 @@ class _QRCodePageState extends State<QRCodePage> {
                   ? Icons.pause_circle_outline_rounded
                   : Icons.radio_button_checked_rounded,
               color:
-              (ApiConfig.useRealApi ? !_canLiveScan : selectedEvent == null)
+                  (ApiConfig.useRealApi ? !_canLiveScan : selectedEvent == null)
                   ? _muted
                   : lastMessage != null
                   ? const Color(0xFFBA790C)
@@ -1526,14 +1527,14 @@ class _QRCodePageState extends State<QRCodePage> {
               child: Text(
                 (ApiConfig.useRealApi ? !_canLiveScan : selectedEvent == null)
                     ? (ApiConfig.useRealApi
-                    ? 'Select an assigned event and OPEN session before scanning.'
-                    : 'Camera is ready. Select an event to enable verification.')
+                          ? 'Select an assigned event and OPEN session before scanning.'
+                          : 'Camera is ready. Select an event to enable verification.')
                     : lastMessage != null
                     ? 'Scanning paused. Use the button below to continue.'
                     : (ApiConfig.useRealApi
-                    ? 'Scanning ${_liveText(_liveSelectedEvent?['title'])} • '
-                    '${_liveDirection == 'in' ? 'Time In' : 'Time Out'}.'
-                    : 'Scanning ${selectedEvent!.title}. Hold the QR code steady.'),
+                          ? 'Scanning ${_liveText(_liveSelectedEvent?['title'])} • '
+                                '${_liveDirection == 'in' ? 'Time In' : 'Time Out'}.'
+                          : 'Scanning ${selectedEvent!.title}. Hold the QR code steady.'),
                 style: TextStyle(color: _muted, fontSize: 12, height: 1.4),
               ),
             ),
@@ -1609,7 +1610,7 @@ class _QRCodePageState extends State<QRCodePage> {
             const SizedBox(height: 10),
             Text(
               'Do not assume the student is absent or present. '
-                  'A request can reach Laravel even if its reply is lost.',
+              'A request can reach Laravel even if its reply is lost.',
               style: TextStyle(
                 color: _ink,
                 fontSize: 12,
@@ -1932,11 +1933,11 @@ class _QRCodePageState extends State<QRCodePage> {
           child: Text(
             ApiConfig.useRealApi
                 ? 'LIVE LARAVEL MODE • The server checks scanner assignment, '
-                'event registration, session windows, and duplicate scans. '
-                'Only a successful server response counts as attendance.'
+                      'event registration, session windows, and duplicate scans. '
+                      'Only a successful server response counts as attendance.'
                 : 'LOCAL DEMONSTRATION ONLY  •  QR checks and attendance '
-                'history are stored in the app session, not in Laravel. '
-                'Official verification requires server-side authorization.',
+                      'history are stored in the app session, not in Laravel. '
+                      'Official verification requires server-side authorization.',
             style: TextStyle(color: _muted, fontSize: 11.5, height: 1.5),
           ),
         ),
@@ -1957,9 +1958,9 @@ class _QRCodePageState extends State<QRCodePage> {
               title: 'Scanner access unavailable',
               message: ApiConfig.useRealApi
                   ? 'Sign in with an active Scanner account assigned by Laravel. '
-                  'Student accounts cannot record attendance.'
+                        'Student accounts cannot record attendance.'
                   : 'This scanner view is for authorized event personnel. '
-                  'Demo role selection is not real authentication.',
+                        'Demo role selection is not real authentication.',
             ),
           ),
         ),
@@ -2059,4 +2060,3 @@ class _EventEaseScanCorners extends CustomPainter {
   bool shouldRepaint(covariant _EventEaseScanCorners oldDelegate) =>
       oldDelegate.color != color;
 }
-

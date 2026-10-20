@@ -1,4 +1,3 @@
-
 part of 'main.dart';
 
 // ======================================================
@@ -32,9 +31,7 @@ class _SessionGateState extends State<SessionGate> {
       try {
         await authTokenStorage.clear();
       } catch (error) {
-        debugPrint(
-          'Unable to clear API token: ${error.runtimeType}',
-        );
+        debugPrint('Unable to clear API token: ${error.runtimeType}');
       }
 
       return false;
@@ -43,8 +40,7 @@ class _SessionGateState extends State<SessionGate> {
     // DEMO MODE:
     // Restore only an explicitly remembered student.
     try {
-      final rememberStudent =
-      await demoSessionStorage.shouldRestoreStudent();
+      final rememberStudent = await demoSessionStorage.shouldRestoreStudent();
 
       if (!rememberStudent) {
         return false;
@@ -84,9 +80,7 @@ class _SessionGateState extends State<SessionGate> {
 
       return true;
     } catch (error) {
-      debugPrint(
-        'Demo session restoration failed: ${error.runtimeType}',
-      );
+      debugPrint('Demo session restoration failed: ${error.runtimeType}');
 
       authService.logout();
 
@@ -109,9 +103,7 @@ class _SessionGateState extends State<SessionGate> {
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(color: navy),
-            ),
+            body: Center(child: CircularProgressIndicator(color: navy)),
           );
         }
 

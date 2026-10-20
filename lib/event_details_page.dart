@@ -21,9 +21,11 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   // Registration itself stays in registeredEvents.
   bool _showRegistrationConfirmation = false;
 
-  bool get _isRegistered => !ApiConfig.useRealApi && registeredEvents.any(
+  bool get _isRegistered =>
+      !ApiConfig.useRealApi &&
+      registeredEvents.any(
         (event) => eventKey(event) == eventKey(widget.event),
-  );
+      );
 
   int get _passedRequirementCount => [
     _profileComplete,
@@ -69,10 +71,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   bool get _profileComplete =>
       savedName.trim().isNotEmpty &&
-          savedDepartment.trim().isNotEmpty &&
-          savedCourse.trim().isNotEmpty &&
-          savedYear.trim().isNotEmpty &&
-          savedBlock.trim().isNotEmpty;
+      savedDepartment.trim().isNotEmpty &&
+      savedCourse.trim().isNotEmpty &&
+      savedYear.trim().isNotEmpty &&
+      savedBlock.trim().isNotEmpty;
 
   bool get _courseEligible => widget.event.allowedCourses.contains(savedCourse);
 
@@ -117,13 +119,13 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
   bool get _eligibleToRegister =>
       _profileComplete &&
-          _departmentEligible &&
-          _courseEligible &&
-          _yearEligible &&
-          _blockEligible &&
-          _hasAvailableSlot &&
-          !_deadlinePassed &&
-          widget.event.registrationOpen;
+      _departmentEligible &&
+      _courseEligible &&
+      _yearEligible &&
+      _blockEligible &&
+      _hasAvailableSlot &&
+      !_deadlinePassed &&
+      widget.event.registrationOpen;
 
   int get _displayParticipantCount {
     final registered = _isRegistered;
@@ -249,10 +251,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   // ====================================================
 
   Widget _confirmationLine(
-      BuildContext dialogContext,
-      String label,
-      String value,
-      ) {
+    BuildContext dialogContext,
+    String label,
+    String value,
+  ) {
     final dark = Theme.of(dialogContext).brightness == Brightness.dark;
 
     final labelColor = dark ? const Color(0xFFB9C8DA) : const Color(0xFF68778B);
@@ -379,7 +381,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
 
               Text(
                 'By continuing, you confirm that you '
-                    'want to participate in this event.',
+                'want to participate in this event.',
                 style: TextStyle(color: secondary, fontSize: 13, height: 1.5),
               ),
             ],
@@ -446,8 +448,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     // The live registration endpoint must be called by the authenticated
     // Events workflow; never issue a local QR pass in Real API Mode.
     if (ApiConfig.useRealApi) {
-      showMessage(context,
-          'Live registration is available from the Events page.');
+      showMessage(
+        context,
+        'Live registration is available from the Events page.',
+      );
       return;
     }
 
@@ -460,7 +464,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       showMessage(
         context,
         'Please complete your profile before registering '
-            'for an event.',
+        'for an event.',
       );
       return;
     }
@@ -469,7 +473,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       showMessage(
         context,
         'Your department or course does not meet '
-            'the requirements for this event.',
+        'the requirements for this event.',
       );
       return;
     }
@@ -478,7 +482,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       showMessage(
         context,
         'Your course, year level, or block is not '
-            'eligible for this event.',
+        'eligible for this event.',
       );
       return;
     }
@@ -497,7 +501,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       showMessage(
         context,
         'The registration deadline for this event '
-            'has passed.',
+        'has passed.',
       );
       return;
     }
@@ -517,7 +521,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       showMessage(
         context,
         'Registration requirements are no longer '
-            'satisfied.',
+        'satisfied.',
       );
       return;
     }
@@ -916,8 +920,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                 _certificateEligible
                     ? 'Your demo certificate preview is ready to view.'
                     : 'Your certificate will unlock when '
-                    'your attendance is marked Present '
-                    'and your event evaluation is completed.',
+                          'your attendance is marked Present '
+                          'and your event evaluation is completed.',
                 style: TextStyle(
                   color: _secondaryText,
                   height: 1.4,
@@ -974,8 +978,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
   // ====================================================
   Widget _experienceSummary() {
     final live = ApiConfig.useRealApi;
-    final accent = live ? const Color(0xFF3978C5) :
-    (_isRegistered ? const Color(0xFF24855E) : _accentColor);
+    final accent = live
+        ? const Color(0xFF3978C5)
+        : (_isRegistered ? const Color(0xFF24855E) : _accentColor);
     final title = live
         ? 'Event preview — verify with Laravel'
         : _isRegistered
@@ -989,10 +994,10 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         : 'Check your registration requirements';
     final explanation = live
         ? 'This detail screen uses local event information. For live eligibility, '
-        'seat counts, and official registration, return to Events.'
+              'seat counts, and official registration, return to Events.'
         : _isRegistered
         ? 'Your local registration is saved for this test session. '
-        'Open My Events to view your demo pass.'
+              'Open My Events to view your demo pass.'
         : _eligibleToRegister
         ? 'Your local profile meets the demo requirements shown below.'
         : 'Expand the checklist below to see which demo requirements need attention.';
@@ -1005,22 +1010,47 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         borderRadius: BorderRadius.circular(19),
         border: Border.all(color: accent.withValues(alpha: 0.32)),
       ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(live ? Icons.cloud_outlined :
-        _isRegistered ? Icons.verified_rounded :
-        _eligibleToRegister ? Icons.fact_check_rounded : Icons.info_outline,
-            color: accent, size: 25),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: TextStyle(color: _primaryText,
-                fontSize: 14, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 5),
-            Text(explanation, style: TextStyle(color: _secondaryText,
-                fontSize: 12, height: 1.5)),
-          ],
-        )),
-      ]),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            live
+                ? Icons.cloud_outlined
+                : _isRegistered
+                ? Icons.verified_rounded
+                : _eligibleToRegister
+                ? Icons.fact_check_rounded
+                : Icons.info_outline,
+            color: accent,
+            size: 25,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: _primaryText,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  explanation,
+                  style: TextStyle(
+                    color: _secondaryText,
+                    fontSize: 12,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1028,40 +1058,74 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     final facts = <({IconData icon, String label, String value})>[
       (icon: Icons.event_outlined, label: 'Date', value: widget.event.date),
       (icon: Icons.schedule_rounded, label: 'Time', value: widget.event.time),
-      (icon: Icons.location_on_outlined, label: 'Venue', value: widget.event.venue),
-      (icon: Icons.groups_outlined, label: 'Capacity',
-      value: '${widget.event.capacity} total'),
+      (
+        icon: Icons.location_on_outlined,
+        label: 'Venue',
+        value: widget.event.venue,
+      ),
+      (
+        icon: Icons.groups_outlined,
+        label: 'Capacity',
+        value: '${widget.event.capacity} total',
+      ),
     ];
-    return LayoutBuilder(builder: (context, constraints) {
-      final width = (constraints.maxWidth - 10) / 2;
-      return Wrap(spacing: 10, runSpacing: 10,
-        children: facts.map((fact) => SizedBox(width: width,
-          child: Container(
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: _cardBackground,
-              borderRadius: BorderRadius.circular(17),
-              border: Border.all(color: _cardBorder),
-            ),
-            child: Row(children: [
-              Icon(fact.icon, color: _iconColor, size: 20),
-              const SizedBox(width: 9),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(fact.label, style: TextStyle(color: _secondaryText,
-                      fontSize: 10.5)),
-                  const SizedBox(height: 3),
-                  Text(fact.value.trim().isEmpty ? 'To be announced' : fact.value,
-                      maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: _primaryText,
-                          fontSize: 12, fontWeight: FontWeight.w800)),
-                ],
-              )),
-            ]),
-          ),
-        )).toList(),
-      );
-    });
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = (constraints.maxWidth - 10) / 2;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: facts
+              .map(
+                (fact) => SizedBox(
+                  width: width,
+                  child: Container(
+                    padding: const EdgeInsets.all(13),
+                    decoration: BoxDecoration(
+                      color: _cardBackground,
+                      borderRadius: BorderRadius.circular(17),
+                      border: Border.all(color: _cardBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(fact.icon, color: _iconColor, size: 20),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                fact.label,
+                                style: TextStyle(
+                                  color: _secondaryText,
+                                  fontSize: 10.5,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                fact.value.trim().isEmpty
+                                    ? 'To be announced'
+                                    : fact.value,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: _primaryText,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
   }
 
   // ====================================================
@@ -1075,7 +1139,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
     final verified = registered || _eligibleToRegister;
 
     final courseText =
-    widget.event.allowedCourses.length == courseOptions.length
+        widget.event.allowedCourses.length == courseOptions.length
         ? 'All Courses'
         : widget.event.allowedCourses.join(', ');
 
@@ -1100,42 +1164,49 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
       // Existing registrations still show in the event details status.
       bottomNavigationBar: (!_isRegistered || _showRegistrationConfirmation)
           ? SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
-          decoration: BoxDecoration(
-            color: _cardBackground,
-            border: Border(top: BorderSide(color: _cardBorder)),
-          ),
-          child: _isRegistered
-              ? _registeredBanner()
-              : SizedBox(
-            height: 54,
-            child: ElevatedButton.icon(
-              onPressed: !ApiConfig.useRealApi && _eligibleToRegister ? registerEvent : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: yellow,
-                foregroundColor: navy,
-                disabledBackgroundColor: _cardBorder,
-                disabledForegroundColor: _secondaryText,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
+                decoration: BoxDecoration(
+                  color: _cardBackground,
+                  border: Border(top: BorderSide(color: _cardBorder)),
                 ),
+                child: _isRegistered
+                    ? _registeredBanner()
+                    : SizedBox(
+                        height: 54,
+                        child: ElevatedButton.icon(
+                          onPressed:
+                              !ApiConfig.useRealApi && _eligibleToRegister
+                              ? registerEvent
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: yellow,
+                            foregroundColor: navy,
+                            disabledBackgroundColor: _cardBorder,
+                            disabledForegroundColor: _secondaryText,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          icon: Icon(
+                            ApiConfig.useRealApi
+                                ? Icons.cloud_outlined
+                                : _eligibleToRegister
+                                ? Icons.how_to_reg_rounded
+                                : Icons.block_rounded,
+                          ),
+                          label: Text(
+                            ApiConfig.useRealApi
+                                ? 'Register from Events'
+                                : _eligibleToRegister
+                                ? 'Confirm Registration'
+                                : 'Not Eligible to Register',
+                          ),
+                        ),
+                      ),
               ),
-              icon: Icon(ApiConfig.useRealApi
-                  ? Icons.cloud_outlined
-                  : _eligibleToRegister
-                  ? Icons.how_to_reg_rounded
-                  : Icons.block_rounded),
-              label: Text(ApiConfig.useRealApi
-                  ? 'Register from Events'
-                  : _eligibleToRegister
-                  ? 'Confirm Registration'
-                  : 'Not Eligible to Register'),
-            ),
-          ),
-        ),
-      )
+            )
           : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
@@ -1254,14 +1325,18 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                 ),
                 Chip(
                   avatar: Icon(
-                    _isRegistered ? Icons.check_circle_outline : Icons.info_outline,
+                    _isRegistered
+                        ? Icons.check_circle_outline
+                        : Icons.info_outline,
                     size: 16,
                   ),
-                  label: Text(_isRegistered
-                      ? 'Registered (Demo)'
-                      : _deadlinePassed || !widget.event.registrationOpen
-                      ? 'Registration closed'
-                      : 'Registration open (Demo)'),
+                  label: Text(
+                    _isRegistered
+                        ? 'Registered (Demo)'
+                        : _deadlinePassed || !widget.event.registrationOpen
+                        ? 'Registration closed'
+                        : 'Registration open (Demo)',
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
               ],
@@ -1378,7 +1453,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                     icon: Icons.people_alt_outlined,
                     label: 'Available Slots',
                     value:
-                    '$_availableSlots available out of '
+                        '$_availableSlots available out of '
                         '${widget.event.capacity} slots',
                   ),
 
@@ -1387,7 +1462,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                     value: widget.event.capacity <= 0
                         ? 0
                         : (_displayParticipantCount / widget.event.capacity)
-                        .clamp(0.0, 1.0),
+                              .clamp(0.0, 1.0),
                     minHeight: 6,
                     borderRadius: BorderRadius.circular(6),
                     backgroundColor: _cardBorder,
@@ -1416,9 +1491,11 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
             // ==========================================
             // REGISTRATION VERIFICATION - COMPACT SUMMARY
             // ==========================================
-            _sectionHeading(ApiConfig.useRealApi
-                ? 'Preview Eligibility Checklist'
-                : 'Registration Verification'),
+            _sectionHeading(
+              ApiConfig.useRealApi
+                  ? 'Preview Eligibility Checklist'
+                  : 'Registration Verification',
+            ),
             const SizedBox(height: 12),
             _card(
               padding: const EdgeInsets.all(12),
@@ -1427,7 +1504,8 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                 children: [
                   InkWell(
                     borderRadius: BorderRadius.circular(14),
-                    onTap: () => setState(() => _showRequirements = !_showRequirements),
+                    onTap: () =>
+                        setState(() => _showRequirements = !_showRequirements),
                     child: Padding(
                       padding: const EdgeInsets.all(10),
                       child: Row(
@@ -1495,7 +1573,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         value: _departmentEligible
                             ? '$savedDepartment is eligible'
                             : 'Your department or program '
-                            'is not eligible',
+                                  'is not eligible',
                         passed: _departmentEligible,
                       ),
 
@@ -1504,7 +1582,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         value: _courseEligible
                             ? '$savedCourse is allowed'
                             : '${savedCourse.isEmpty ? 'No course selected' : savedCourse} '
-                            'is not allowed',
+                                  'is not allowed',
                         passed: _courseEligible,
                       ),
 
@@ -1513,7 +1591,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         value: _yearEligible
                             ? '$savedYear is allowed'
                             : '${savedYear.isEmpty ? 'No year level selected' : savedYear} '
-                            'is not allowed',
+                                  'is not allowed',
                         passed: _yearEligible,
                       ),
 
@@ -1539,7 +1617,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         label: 'Registration Deadline',
                         value: _deadlinePassed
                             ? 'Registration deadline '
-                            'has passed'
+                                  'has passed'
                             : 'Within the registration period',
                         passed: !_deadlinePassed,
                       ),
@@ -1549,10 +1627,9 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
                         value: _blockEligible
                             ? '$savedBlock is allowed'
                             : 'Your block is not eligible '
-                            'for this event',
+                                  'for this event',
                         passed: _blockEligible,
                       ),
-
                     ],
                     _verificationResult(
                       registered: registered,
@@ -1578,7 +1655,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
               const SizedBox(height: 10),
               Text(
                 'Your profile must meet the event '
-                    'requirements before you can register.',
+                'requirements before you can register.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: _secondaryText,

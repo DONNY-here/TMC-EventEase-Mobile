@@ -5,9 +5,9 @@ part of 'main.dart';
 class StudentIdFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
-      ) {
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     final beforeCaret = newValue.selection.baseOffset
         .clamp(0, newValue.text.length)
         .toInt();
@@ -177,22 +177,24 @@ class _RegisterPageState extends State<RegisterPage> {
 
         // AuthController expects block_no, not 'block'.
         // Store the number on Laravel, but retain 'Block N' in demo UI.
-        final response = await http.post(
-          registerUri,
-          headers: const {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({
-            'name': name,
-            'school_id': studentId,
-            'email': email,
-            'course': selectedCourse,
-            'year': selectedYear,
-            'block_no': block.substring('Block '.length),
-            'password': password,
-          }),
-        ).timeout(const Duration(seconds: 20));
+        final response = await http
+            .post(
+              registerUri,
+              headers: const {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'name': name,
+                'school_id': studentId,
+                'email': email,
+                'course': selectedCourse,
+                'year': selectedYear,
+                'block_no': block.substring('Block '.length),
+                'password': password,
+              }),
+            )
+            .timeout(const Duration(seconds: 20));
 
         if (!mounted) return;
 
@@ -209,8 +211,8 @@ class _RegisterPageState extends State<RegisterPage> {
             title: const Text('Registration Submitted'),
             content: const Text(
               'Your student account was created successfully. '
-                  'It is currently Pending and must be activated '
-                  'by an administrator before you can sign in.',
+              'It is currently Pending and must be activated '
+              'by an administrator before you can sign in.',
             ),
             actions: [
               FilledButton(
@@ -228,7 +230,7 @@ class _RegisterPageState extends State<RegisterPage> {
           showMessage(
             context,
             'Could not reach Laravel. Check your HTTPS URL, '
-                'internet connection, and server status.',
+            'internet connection, and server status.',
           );
         }
       } finally {
@@ -371,7 +373,7 @@ class _RegisterPageState extends State<RegisterPage> {
         icon: Icons.person_outline_rounded,
         capitalization: TextCapitalization.words,
         validator: (v) =>
-        (v ?? '').trim().isEmpty ? 'Please enter your full name.' : null,
+            (v ?? '').trim().isEmpty ? 'Please enter your full name.' : null,
       ),
       const SizedBox(height: 16),
       field(
@@ -416,10 +418,10 @@ class _RegisterPageState extends State<RegisterPage> {
         items: departmentCourses.keys
             .map(
               (d) => DropdownMenuItem(
-            value: d,
-            child: Text(d, overflow: TextOverflow.ellipsis),
-          ),
-        )
+                value: d,
+                child: Text(d, overflow: TextOverflow.ellipsis),
+              ),
+            )
             .toList(),
         onChanged: (v) {
           if (v == null) return;
@@ -735,7 +737,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                   ),
                                   label: Text(
                                     currentStep == 2
-                                        ? (isSubmitting ? 'Creating Account...' : 'Create Account')
+                                        ? (isSubmitting
+                                              ? 'Creating Account...'
+                                              : 'Create Account')
                                         : 'Continue',
                                   ),
                                 ),

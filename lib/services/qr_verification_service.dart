@@ -1,4 +1,3 @@
-
 import '../models/qr_verification_result.dart';
 
 // ======================================================
@@ -14,8 +13,7 @@ class QrVerificationService {
   final Map<String, DateTime> _attendanceRecords = {};
 
   // Expected format of locally generated tokens.
-  static final RegExp _validToken =
-  RegExp(r'^[A-Za-z0-9]{40}$');
+  static final RegExp _validToken = RegExp(r'^[A-Za-z0-9]{40}$');
 
   // Unique key for one event registration.
   String _registrationKey(String eventId, String token) {
@@ -35,22 +33,16 @@ class QrVerificationService {
     final cleanEventId = eventId.trim();
     final cleanStudentName = studentName.trim();
 
-    if (!_validToken.hasMatch(cleanToken) ||
-        cleanEventId.isEmpty) {
+    if (!_validToken.hasMatch(cleanToken) || cleanEventId.isEmpty) {
       return;
     }
 
-    final key = _registrationKey(
-      cleanEventId,
-      cleanToken,
-    );
+    final key = _registrationKey(cleanEventId, cleanToken);
 
     // Do not overwrite existing registration details.
     _registrations.putIfAbsent(
       key,
-          () => cleanStudentName.isEmpty
-          ? 'Demo Student'
-          : cleanStudentName,
+      () => cleanStudentName.isEmpty ? 'Demo Student' : cleanStudentName,
     );
   }
 
@@ -64,16 +56,13 @@ class QrVerificationService {
     required String eventTitle,
   }) async {
     // Simulate server processing for UI testing.
-    await Future<void>.delayed(
-      const Duration(milliseconds: 500),
-    );
+    await Future<void>.delayed(const Duration(milliseconds: 500));
 
     final cleanToken = token.trim();
     final cleanEventId = eventId.trim();
 
     // STEP 1: Validate token format.
-    if (!_validToken.hasMatch(cleanToken) ||
-        cleanEventId.isEmpty) {
+    if (!_validToken.hasMatch(cleanToken) || cleanEventId.isEmpty) {
       return const QrVerificationResult(
         success: false,
         status: 'invalid',
@@ -81,10 +70,7 @@ class QrVerificationService {
       );
     }
 
-    final key = _registrationKey(
-      cleanEventId,
-      cleanToken,
-    );
+    final key = _registrationKey(cleanEventId, cleanToken);
 
     // STEP 2: Check selected event registration.
     final studentName = _registrations[key];
@@ -92,24 +78,21 @@ class QrVerificationService {
     if (studentName == null) {
       // Check whether token belongs to another event.
       final wrongEvent = _registrations.keys.any(
-            (registeredKey) =>
-            registeredKey.endsWith('|$cleanToken'),
+        (registeredKey) => registeredKey.endsWith('|$cleanToken'),
       );
 
       if (wrongEvent) {
         return const QrVerificationResult(
           success: false,
           status: 'wrong_event',
-          message:
-          'This QR code belongs to a different event.',
+          message: 'This QR code belongs to a different event.',
         );
       }
 
       return const QrVerificationResult(
         success: false,
         status: 'invalid',
-        message:
-        'No matching demo event registration found.',
+        message: 'No matching demo event registration found.',
       );
     }
 
@@ -120,8 +103,7 @@ class QrVerificationService {
       return QrVerificationResult(
         success: false,
         status: 'duplicate',
-        message:
-        'Attendance has already been recorded.',
+        message: 'Attendance has already been recorded.',
         studentName: studentName,
         eventTitle: eventTitle,
         checkInTime: _formatTime(previousCheckIn),
@@ -136,8 +118,7 @@ class QrVerificationService {
     return QrVerificationResult(
       success: true,
       status: 'present',
-      message:
-      'DEMO MODE: Attendance recorded successfully!',
+      message: 'DEMO MODE: Attendance recorded successfully!',
       studentName: studentName,
       eventTitle: eventTitle,
       checkInTime: _formatTime(now),
@@ -158,17 +139,11 @@ class QrVerificationService {
   // ====================================================
 
   String _formatTime(DateTime time) {
-    final hour = time.hour % 12 == 0
-        ? 12
-        : time.hour % 12;
+    final hour = time.hour % 12 == 0 ? 12 : time.hour % 12;
 
-    final minute = time.minute
-        .toString()
-        .padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
 
-    final period = time.hour >= 12
-        ? 'PM'
-        : 'AM';
+    final period = time.hour >= 12 ? 'PM' : 'AM';
 
     return '$hour:$minute $period';
   }

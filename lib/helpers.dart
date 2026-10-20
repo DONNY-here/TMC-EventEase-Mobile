@@ -67,15 +67,10 @@ Future<void> logoutEventEaseUser(BuildContext context) async {
     // 2. Remove any locally stored Laravel token.
     await authTokenStorage.clear();
   } catch (error) {
-    debugPrint(
-      'Logout error: ${error.runtimeType}',
-    );
+    debugPrint('Logout error: ${error.runtimeType}');
 
     if (context.mounted) {
-      showMessage(
-        context,
-        'Unable to complete logout. Please retry.',
-      );
+      showMessage(context, 'Unable to complete logout. Please retry.');
     }
 
     return;
@@ -110,10 +105,9 @@ Future<void> logoutEventEaseUser(BuildContext context) async {
   if (!context.mounted) return;
 
   // 8. Remove authenticated pages from navigation.
-  Navigator.of(context).pushAndRemoveUntil(
-    animatedRoute(const LoginPage()),
-        (route) => false,
-  );
+  Navigator.of(
+    context,
+  ).pushAndRemoveUntil(animatedRoute(const LoginPage()), (route) => false);
 }
 
 // ======================================================

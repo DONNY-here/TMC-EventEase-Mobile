@@ -1,5 +1,3 @@
-
-
 // ======================================================
 // TMC EVENTEASE - API CONFIGURATION
 // ======================================================
@@ -73,7 +71,6 @@ class ApiConfig {
     return login.replace(path: forgotPasswordPath);
   }
 
-
   // ======================================================
   // EVENTS API CONFIGURATION
   // ======================================================
@@ -99,5 +96,4 @@ class ApiConfig {
 
     return login.replace(path: eventsPath);
   }
-
 }

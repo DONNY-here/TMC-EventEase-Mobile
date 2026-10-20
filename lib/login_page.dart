@@ -165,9 +165,7 @@ class _LoginPageState extends State<LoginPage> {
 
         // Remembering locally registered accounts will be
         // implemented separately from the built-in demo session.
-        await demoSessionStorage.setRememberStudent(
-          rememberDemoStudent,
-        );
+        await demoSessionStorage.setRememberStudent(rememberDemoStudent);
 
         if (!mounted) return;
 
@@ -419,15 +417,15 @@ class _LoginPageState extends State<LoginPage> {
                               onPressed: isLoggingIn
                                   ? null
                                   : () {
-                                Navigator.push(
-                                  context,
-                                  animatedRoute(
-                                    const ForgotPasswordPage(
-                                      initialEmail: '',
-                                    ),
-                                  ),
-                                );
-                              },
+                                      Navigator.push(
+                                        context,
+                                        animatedRoute(
+                                          const ForgotPasswordPage(
+                                            initialEmail: '',
+                                          ),
+                                        ),
+                                      );
+                                    },
                               child: const Text(
                                 'Forgot Password?',
                                 style: TextStyle(
@@ -453,10 +451,10 @@ class _LoginPageState extends State<LoginPage> {
                               onChanged: isLoggingIn
                                   ? null
                                   : (value) {
-                                setState(() {
-                                  rememberDemoStudent = value ?? false;
-                                });
-                              },
+                                      setState(() {
+                                        rememberDemoStudent = value ?? false;
+                                      });
+                                    },
                               title: const Text(
                                 'Keep me signed in',
                                 style: TextStyle(
@@ -477,13 +475,13 @@ class _LoginPageState extends State<LoginPage> {
                             onPressed: isLoggingIn ? null : loginUser,
                             icon: isLoggingIn
                                 ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: navy,
-                              ),
-                            )
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: navy,
+                                    ),
+                                  )
                                 : const Icon(Icons.login_rounded),
                             label: Text(
                               isLoggingIn ? 'Signing In...' : 'Sign In',
@@ -500,11 +498,11 @@ class _LoginPageState extends State<LoginPage> {
                             onPressed: isLoggingIn
                                 ? null
                                 : () {
-                              Navigator.push(
-                                context,
-                                animatedRoute(const RegisterPage()),
-                              );
-                            },
+                                    Navigator.push(
+                                      context,
+                                      animatedRoute(const RegisterPage()),
+                                    );
+                                  },
                             child: const Text(
                               "Don't have an account? Register",
                               style: TextStyle(

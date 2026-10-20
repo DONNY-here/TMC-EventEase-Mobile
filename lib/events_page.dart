@@ -89,13 +89,13 @@ class _EventsPageState extends State<EventsPage> {
 
   List<String> get _departments {
     final values =
-    eventList
-        .where((e) => e.scope == 'Department-Specific')
-        .map((e) => e.department.trim())
-        .where((v) => v.isNotEmpty && v != 'All Departments')
-        .toSet()
-        .toList()
-      ..sort();
+        eventList
+            .where((e) => e.scope == 'Department-Specific')
+            .map((e) => e.department.trim())
+            .where((v) => v.isNotEmpty && v != 'All Departments')
+            .toSet()
+            .toList()
+          ..sort();
     return ['All Departments', ...values];
   }
 
@@ -106,9 +106,9 @@ class _EventsPageState extends State<EventsPage> {
     final events = eventList.where((event) {
       final matchesText =
           query.isEmpty ||
-              '${event.title} ${event.venue} ${event.description} ${event.department}'
-                  .toLowerCase()
-                  .contains(query);
+          '${event.title} ${event.venue} ${event.description} ${event.department}'
+              .toLowerCase()
+              .contains(query);
       final matchesScope = _scope == 'All Events' || event.scope == _scope;
       final matchesDepartment =
           _department == 'All Departments' || event.department == _department;
@@ -257,14 +257,14 @@ class _EventsPageState extends State<EventsPage> {
     items: options
         .map(
           (option) => DropdownMenuItem<String>(
-        value: option,
-        child: Text(
-          option,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12),
-        ),
-      ),
-    )
+            value: option,
+            child: Text(
+              option,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        )
         .toList(),
     onChanged: (value) {
       if (value != null) onChanged(value);
@@ -571,13 +571,13 @@ class _EventsPageState extends State<EventsPage> {
 
       final response = await http
           .get(
-        uri,
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      )
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              'ngrok-skip-browser-warning': 'true',
+            },
+          )
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 401) {
@@ -693,12 +693,12 @@ class _EventsPageState extends State<EventsPage> {
 
   List<String> get _liveDepartments {
     final values =
-    _liveEvents
-        .map((event) => _liveString(event['target_department']))
-        .where((department) => department.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+        _liveEvents
+            .map((event) => _liveString(event['target_department']))
+            .where((department) => department.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
     return ['All Departments', ...values];
   }
 
@@ -1252,26 +1252,12 @@ class _EventsPageState extends State<EventsPage> {
                         child: Text('Loading events from Laravel...'),
                       ),
                     ] else if (_liveError != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: _colors.surface,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: _colors.outlineVariant),
-                        ),
-                        child: Column(
-                          children: [
-                            const Icon(Icons.cloud_off_outlined, size: 36),
-                            const SizedBox(height: 8),
-                            Text(_liveError!, textAlign: TextAlign.center),
-                            const SizedBox(height: 8),
-                            TextButton.icon(
-                              onPressed: () => _loadLiveEvents(page: _livePage),
-                              icon: const Icon(Icons.refresh_rounded),
-                              label: const Text('Try again'),
-                            ),
-                          ],
-                        ),
+                      EventEaseStatusPanel(
+                        icon: Icons.wifi_off_rounded,
+                        title: 'Events are temporarily unavailable',
+                        message: _liveError!,
+                        actionLabel: 'Try again',
+                        onAction: () => _loadLiveEvents(page: _livePage),
                       ),
                     ] else ...[
                       Text(
@@ -1283,17 +1269,12 @@ class _EventsPageState extends State<EventsPage> {
                       ),
                       const SizedBox(height: 12),
                       if (events.isEmpty)
-                        Container(
-                          padding: const EdgeInsets.all(26),
-                          decoration: BoxDecoration(
-                            color: _colors.surface,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: const Text(
-                            'No events match these filters on this page. '
-                                'Try All or refresh the list.',
-                            textAlign: TextAlign.center,
-                          ),
+                        const EventEaseStatusPanel(
+                          icon: Icons.event_busy_outlined,
+                          title: 'No events on this page',
+                          message:
+                              'No events match these filters. Try All, '
+                              'change your search, or refresh the list.',
                         )
                       else
                         ...events.map(_liveCard),
@@ -1324,7 +1305,7 @@ class _EventsPageState extends State<EventsPage> {
                     const SizedBox(height: 10),
                     Text(
                       'Live filters and search apply to the current page. '
-                          'Use a future approved event to test student self-registration.',
+                      'Use a future approved event to test student self-registration.',
                       style: TextStyle(
                         fontSize: 11,
                         color: _colors.onSurfaceVariant,
@@ -1370,7 +1351,7 @@ class _EventsPageState extends State<EventsPage> {
                         onPressed: realMode
                             ? null
                             : () =>
-                            setState(() => _showFilters = !_showFilters),
+                                  setState(() => _showFilters = !_showFilters),
                         icon: const Icon(Icons.tune_rounded),
                       ),
                       border: OutlineInputBorder(
@@ -1473,7 +1454,9 @@ class _LiveLaravelRegistrationActionsState
     try {
       final token = await authTokenStorage.readValidToken();
       if (token == null || token.trim().isEmpty) {
-        throw StateError('Your session expired. Sign in again to check registration.');
+        throw StateError(
+          'Your session expired. Sign in again to check registration.',
+        );
       }
       final base = Uri.tryParse(ApiConfig.baseUrl.trim());
       if (base == null ||
@@ -1491,18 +1474,27 @@ class _LiveLaravelRegistrationActionsState
           queryParameters: {'page': '$page'},
           fragment: null,
         );
-        final response = await http.get(uri, headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        }).timeout(const Duration(seconds: 20));
+        final response = await http
+            .get(
+              uri,
+              headers: {
+                'Accept': 'application/json',
+                'Authorization': 'Bearer $token',
+                'ngrok-skip-browser-warning': 'true',
+              },
+            )
+            .timeout(const Duration(seconds: 20));
         if (response.statusCode != 200) {
-          throw StateError('Could not verify existing registrations '
-              '(HTTP ${response.statusCode}).');
+          throw StateError(
+            'Could not verify existing registrations '
+            '(HTTP ${response.statusCode}).',
+          );
         }
         final decoded = jsonDecode(response.body);
         if (decoded is! Map || decoded['data'] is! List) {
-          throw const FormatException('Unexpected registrations response from Laravel.');
+          throw const FormatException(
+            'Unexpected registrations response from Laravel.',
+          );
         }
         for (final item in decoded['data'] as List) {
           if (item is! Map) continue;
@@ -1511,7 +1503,9 @@ class _LiveLaravelRegistrationActionsState
           if ((eventId.isNotEmpty && eventId == _eventId?.toString()) ||
               (eventRef.isNotEmpty && eventRef == _eventReference)) {
             final status = (item['registration_status'] ?? item['status'] ?? '')
-                .toString().toLowerCase().trim();
+                .toString()
+                .toLowerCase()
+                .trim();
             if (status == 'cancelled' || status == 'canceled') continue;
             if (mounted) {
               setState(() => _alreadyRegistered = true);
@@ -1643,8 +1637,8 @@ class _LiveLaravelRegistrationActionsState
         title: const Text('Confirm registration'),
         content: Text(
           'Submit your student account to Laravel for '
-              '"${_field('title')}"? The server will check eligibility, '
-              'capacity, and duplicate registrations.',
+          '"${_field('title')}"? The server will check eligibility, '
+          'capacity, and duplicate registrations.',
         ),
         actions: [
           TextButton(
@@ -1690,15 +1684,15 @@ class _LiveLaravelRegistrationActionsState
       // not the numeric database ID. Backend determines eligibility and status.
       final response = await http
           .post(
-        uri,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode({'event_reference': _eventReference}),
-      )
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+              'ngrok-skip-browser-warning': 'true',
+            },
+            body: jsonEncode({'event_reference': _eventReference}),
+          )
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -1708,7 +1702,7 @@ class _LiveLaravelRegistrationActionsState
           _serverAccepted = true;
           _feedbackIsError = false;
           _feedback =
-          'Laravel accepted your registration. '
+              'Laravel accepted your registration. '
               'The registration and any QR credential are managed by the server.';
         });
         widget.onSuccessfulRegistration();
@@ -1717,7 +1711,7 @@ class _LiveLaravelRegistrationActionsState
         if (!mounted) return;
         final duplicate =
             message.toLowerCase().contains('already registered') ||
-                message.toLowerCase().contains('already enrolled');
+            message.toLowerCase().contains('already enrolled');
         setState(() {
           if (duplicate) _alreadyRegistered = true;
           _feedback = duplicate
@@ -1736,7 +1730,7 @@ class _LiveLaravelRegistrationActionsState
       if (!mounted) return;
       setState(() {
         _feedback =
-        'Could not submit registration. Check your Internet, '
+            'Could not submit registration. Check your Internet, '
             'Laravel server, and ngrok tunnel, then try again.';
         _feedbackIsError = true;
       });
@@ -1751,10 +1745,10 @@ class _LiveLaravelRegistrationActionsState
     final reason = _unavailableReason;
     final canRegister =
         !_serverAccepted &&
-            !_alreadyRegistered &&
-            !_checkingRegistration &&
-            !_registrationCheckFailed &&
-            reason == null;
+        !_alreadyRegistered &&
+        !_checkingRegistration &&
+        !_registrationCheckFailed &&
+        reason == null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1764,15 +1758,15 @@ class _LiveLaravelRegistrationActionsState
         Builder(
           builder: (context) {
             final requirements =
-            <String, String>{
-              'Course': _field('target_course'),
-              'Year level': _field('target_year'),
-              'Block': _field('target_block'),
-              'Department': _field('target_department'),
-              'Role': _field('target_role'),
-            }..removeWhere(
+                <String, String>{
+                  'Course': _field('target_course'),
+                  'Year level': _field('target_year'),
+                  'Block': _field('target_block'),
+                  'Department': _field('target_department'),
+                  'Role': _field('target_role'),
+                }..removeWhere(
                   (key, value) => value.isEmpty || value.toLowerCase() == 'all',
-            );
+                );
             if (requirements.isEmpty) {
               return const SizedBox.shrink();
             }
@@ -1809,8 +1803,8 @@ class _LiveLaravelRegistrationActionsState
                   const SizedBox(height: 10),
                   Text(
                     'Your eligibility is checked by Laravel when you register. '
-                        'Course, year and block values here are event requirements, '
-                        'not confirmation that your account qualifies.',
+                    'Course, year and block values here are event requirements, '
+                    'not confirmation that your account qualifies.',
                     style: TextStyle(
                       fontSize: 12,
                       color: scheme.onSurfaceVariant,
@@ -1870,17 +1864,17 @@ class _LiveLaravelRegistrationActionsState
                   ),
                   icon: (_isSubmitting || _checkingRegistration)
                       ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : Icon(
-                    (_serverAccepted || _alreadyRegistered)
-                        ? Icons.check_circle_rounded
-                        : reason != null
-                        ? Icons.event_busy_rounded
-                        : Icons.how_to_reg_rounded,
-                  ),
+                          (_serverAccepted || _alreadyRegistered)
+                              ? Icons.check_circle_rounded
+                              : reason != null
+                              ? Icons.event_busy_rounded
+                              : Icons.how_to_reg_rounded,
+                        ),
                   label: Text(
                     _isSubmitting
                         ? 'Submitting...'
@@ -1916,7 +1910,9 @@ class _LiveLaravelRegistrationActionsState
               if (_registrationCheckFailed) ...[
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
-                  onPressed: _checkingRegistration ? null : _checkExistingRegistration,
+                  onPressed: _checkingRegistration
+                      ? null
+                      : _checkExistingRegistration,
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Retry registration check'),
                 ),
@@ -1937,8 +1933,8 @@ class _LiveLaravelRegistrationActionsState
               const SizedBox(height: 12),
               Text(
                 'Registration decisions and attendance QR passes are '
-                    'controlled by Laravel. This page does not issue demo '
-                    'passes or mark you as attended.',
+                'controlled by Laravel. This page does not issue demo '
+                'passes or mark you as attended.',
                 style: TextStyle(
                   color: colors.onSurfaceVariant,
                   height: 1.4,

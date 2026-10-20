@@ -1,4 +1,3 @@
-
 part of 'main.dart';
 
 // ======================================================
@@ -14,16 +13,12 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-
   // ====================================================
   // OPEN EDIT PROFILE
   // ====================================================
 
   Future<void> openEditProfile() async {
-    await Navigator.push(
-      context,
-      animatedRoute(const EditProfilePage()),
-    );
+    await Navigator.push(context, animatedRoute(const EditProfilePage()));
 
     if (!mounted) return;
 
@@ -43,8 +38,7 @@ class _ProfilePageState extends State<ProfilePage> {
         final theme = Theme.of(dialogContext);
         final colors = theme.colorScheme;
 
-        final isDark =
-            theme.brightness == Brightness.dark;
+        final isDark = theme.brightness == Brightness.dark;
 
         return AlertDialog(
           backgroundColor: colors.surface,
@@ -75,7 +69,7 @@ class _ProfilePageState extends State<ProfilePage> {
           // CONFIRMATION MESSAGE
           content: Text(
             'Are you sure you want to end '
-                'your current session?',
+            'your current session?',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: colors.onSurfaceVariant,
@@ -93,44 +87,33 @@ class _ProfilePageState extends State<ProfilePage> {
                 Navigator.pop(dialogContext, false);
               },
               style: TextButton.styleFrom(
-                foregroundColor:
-                isDark ? yellow : navy,
+                foregroundColor: isDark ? yellow : navy,
               ),
               child: const Text(
                 'Stay',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
 
             FilledButton.icon(
               style: FilledButton.styleFrom(
-                backgroundColor: isDark
-                    ? const Color(0xFFBF4242)
-                    : navy,
+                backgroundColor: isDark ? const Color(0xFFBF4242) : navy,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 18,
                   vertical: 12,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius:
-                  BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               onPressed: () {
                 Navigator.pop(dialogContext, true);
               },
-              icon: const Icon(
-                Icons.logout_rounded,
-                size: 18,
-              ),
+              icon: const Icon(Icons.logout_rounded, size: 18),
               label: const Text(
                 'Logout',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -154,11 +137,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void openResetPassword() {
     Navigator.push(
       context,
-      animatedRoute(
-        ForgotPasswordPage(
-          initialEmail: savedEmail,
-        ),
-      ),
+      animatedRoute(ForgotPasswordPage(initialEmail: savedEmail)),
     );
   }
 
@@ -169,11 +148,9 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return EventEaseProfileView(
-
       // ================================================
       // STUDENT PERSONAL INFORMATION
       // ================================================
-
       name: savedName,
 
       email: savedEmail,
@@ -191,7 +168,6 @@ class _ProfilePageState extends State<ProfilePage> {
       // ================================================
       // PROFILE ACTIONS
       // ================================================
-
       onEdit: openEditProfile,
 
       onResetPassword: openResetPassword,

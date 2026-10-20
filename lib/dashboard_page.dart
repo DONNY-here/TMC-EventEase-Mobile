@@ -10,7 +10,8 @@ class DashboardPage extends StatefulWidget {
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserver {
+class _DashboardPageState extends State<DashboardPage>
+    with WidgetsBindingObserver {
   static const _ink = Color(0xFF102A4C);
   static const _blue = Color(0xFF215B99);
   static const _gold = Color(0xFFFFCB4D);
@@ -71,22 +72,22 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   }
 
   Future<List<Map<String, dynamic>>> _fetchAll(
-      String path,
-      String token,
-      ) async {
+    String path,
+    String token,
+  ) async {
     final rows = <Map<String, dynamic>>[];
     var page = 1;
     var lastPage = 1;
     do {
       final response = await http
           .get(
-        _endpoint(path, page),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      )
+            _endpoint(path, page),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              'ngrok-skip-browser-warning': 'true',
+            },
+          )
           .timeout(const Duration(seconds: 20));
       if (response.statusCode == 401) {
         throw StateError('Your session has expired. Please sign in again.');
@@ -212,10 +213,10 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   }
 
   String _field(
-      Map<String, dynamic> item,
-      String field, [
-        String fallback = '',
-      ]) {
+    Map<String, dynamic> item,
+    String field, [
+    String fallback = '',
+  ]) {
     final value = item[field];
     return value == null ? fallback : value.toString().trim();
   }
@@ -223,16 +224,19 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   // Only active registrations count toward student dashboard activity.
   // Some Laravel controllers return cancelled rows in registration history.
   bool _activeRegistration(Map<String, dynamic> record) {
-    final status = _field(record, 'registration_status',
-        _field(record, 'status')).toLowerCase();
+    final status = _field(
+      record,
+      'registration_status',
+      _field(record, 'status'),
+    ).toLowerCase();
     return status != 'cancelled' && status != 'canceled';
   }
 
   Widget _liveTile(
-      BuildContext context,
-      Map<String, dynamic> item, {
-        required bool registered,
-      }) {
+    BuildContext context,
+    Map<String, dynamic> item, {
+    required bool registered,
+  }) {
     final c = Theme.of(context).colorScheme;
     final title = _field(
       item,
@@ -244,8 +248,8 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
     final attendance = _field(item, 'attendance').toLowerCase();
     final scanned =
         attendance == 'present' ||
-            attendance == 'late' ||
-            attendance == 'complete';
+        attendance == 'late' ||
+        attendance == 'complete';
     final label = scanned
         ? 'ATTENDED'
         : registered
@@ -330,29 +334,12 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
       );
     }
     if (error != null) {
-      final c = Theme.of(context).colorScheme;
-      return Container(
-        padding: const EdgeInsets.all(17),
-        decoration: BoxDecoration(
-          color: c.surface,
-          border: Border.all(color: c.outlineVariant),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          children: [
-            Text(
-              error,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: c.onSurfaceVariant),
-            ),
-            const SizedBox(height: 10),
-            TextButton.icon(
-              onPressed: _refreshDashboardAndBadge,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
-            ),
-          ],
-        ),
+      return EventEaseStatusPanel(
+        icon: Icons.cloud_off_rounded,
+        title: 'Unable to load campus records',
+        message: error,
+        actionLabel: 'Try again',
+        onAction: _refreshDashboardAndBadge,
       );
     }
     return _serverPlaceholder(context, emptyText);
@@ -389,11 +376,11 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                   Text(
                     _realApiMode
                         ? (_loadingLive
-                        ? 'Loading Laravel records'
-                        : (_registrationError != null ||
-                        _eventError != null)
-                        ? 'Part of the dashboard is unavailable'
-                        : 'Connected to Laravel')
+                              ? 'Loading Laravel records'
+                              : (_registrationError != null ||
+                                    _eventError != null)
+                              ? 'Part of the dashboard is unavailable'
+                              : 'Connected to Laravel')
                         : 'Preview data',
                     style: TextStyle(
                       color: colors.onSurface,
@@ -582,11 +569,11 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   );
 
   Widget _heading(
-      BuildContext context,
-      String title,
-      String subtitle,
-      VoidCallback action,
-      ) {
+    BuildContext context,
+    String title,
+    String subtitle,
+    VoidCallback action,
+  ) {
     final c = Theme.of(context).colorScheme;
     return Row(
       children: [
@@ -630,12 +617,12 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   }
 
   Widget _hero(
-      BuildContext context,
-      String firstName,
-      int upcoming,
-      Event? nextEvent, {
-        Map<String, dynamic>? liveNext,
-      }) {
+    BuildContext context,
+    String firstName,
+    int upcoming,
+    Event? nextEvent, {
+    Map<String, dynamic>? liveNext,
+  }) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -716,8 +703,8 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                   Text(
                     _realApiMode
                         ? (upcoming == 0
-                        ? 'Explore campus events and stay connected.'
-                        : 'You have $upcoming upcoming registered ${upcoming == 1 ? 'event' : 'events'}.')
+                              ? 'Explore campus events and stay connected.'
+                              : 'You have $upcoming upcoming registered ${upcoming == 1 ? 'event' : 'events'}.')
                         : upcoming == 0
                         ? 'Your next campus experience starts here.'
                         : 'You have $upcoming upcoming registered ${upcoming == 1 ? 'event' : 'events'}.',
@@ -760,8 +747,8 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                               Text(
                                 _realApiMode
                                     ? (liveNext == null
-                                    ? 'CAMPUS EVENTS'
-                                    : 'YOUR NEXT EVENT')
+                                          ? 'CAMPUS EVENTS'
+                                          : 'YOUR NEXT EVENT')
                                     : nextEvent == null
                                     ? 'READY FOR SOMETHING NEW?'
                                     : 'YOUR NEXT EVENT',
@@ -776,14 +763,14 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                               Text(
                                 _realApiMode
                                     ? (liveNext == null
-                                    ? 'Explore approved TMC events'
-                                    : _field(
-                                  liveNext,
-                                  'event_title',
-                                  'Upcoming event',
-                                ))
+                                          ? 'Explore approved TMC events'
+                                          : _field(
+                                              liveNext,
+                                              'event_title',
+                                              'Upcoming event',
+                                            ))
                                     : nextEvent?.title ??
-                                    'Explore what’s happening',
+                                          'Explore what’s happening',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -865,13 +852,13 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   }
 
   Widget _shortcut(
-      BuildContext context,
-      String label,
-      String description,
-      IconData icon,
-      Color accent,
-      VoidCallback onTap,
-      ) {
+    BuildContext context,
+    String label,
+    String description,
+    IconData icon,
+    Color accent,
+    VoidCallback onTap,
+  ) {
     final c = Theme.of(context).colorScheme;
     return Expanded(
       child: Material(
@@ -928,12 +915,12 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   }
 
   Widget _metric(
-      BuildContext context,
-      String label,
-      String value,
-      IconData icon,
-      Color accent,
-      ) {
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+    Color accent,
+  ) {
     final c = Theme.of(context).colorScheme;
     return Expanded(
       child: Container(
@@ -987,11 +974,11 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   }
 
   Widget _eventTile(
-      BuildContext context,
-      Event event,
-      DateTime today, {
-        bool registered = false,
-      }) {
+    BuildContext context,
+    Event event,
+    DateTime today, {
+    bool registered = false,
+  }) {
     final c = Theme.of(context).colorScheme;
     final date = _date(event.date);
     final past = date != null && date.isBefore(today);
@@ -1156,31 +1143,33 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
         .where((e) => attendanceStatus[eventKey(e)] == 'Present')
         .length;
     final liveUpcomingRegistrations =
-    _liveRegistrations.where((r) {
-      final date = _date(_field(r, 'event_date'));
-      return _activeRegistration(r) &&
-          date != null && !date.isBefore(today);
-    }).toList()..sort(
+        _liveRegistrations.where((r) {
+          final date = _date(_field(r, 'event_date'));
+          return _activeRegistration(r) &&
+              date != null &&
+              !date.isBefore(today);
+        }).toList()..sort(
           (a, b) => _date(
-        _field(a, 'event_date'),
-      )!.compareTo(_date(_field(b, 'event_date'))!),
-    );
+            _field(a, 'event_date'),
+          )!.compareTo(_date(_field(b, 'event_date'))!),
+        );
     final liveUpcomingCampus =
-    _liveCampusEvents.where((e) {
-      final date = _date(_field(e, 'event_date'));
-      return date != null && !date.isBefore(today);
-    }).toList()..sort(
+        _liveCampusEvents.where((e) {
+          final date = _date(_field(e, 'event_date'));
+          return date != null && !date.isBefore(today);
+        }).toList()..sort(
           (a, b) => _date(
-        _field(a, 'event_date'),
-      )!.compareTo(_date(_field(b, 'event_date'))!),
-    );
+            _field(a, 'event_date'),
+          )!.compareTo(_date(_field(b, 'event_date'))!),
+        );
     final liveAttended = _liveRegistrations.where((r) {
       if (!_activeRegistration(r)) return false;
       final status = _field(r, 'attendance').toLowerCase();
       return status == 'present' || status == 'late' || status == 'complete';
     }).length;
-    final activeLiveRegistrations =
-        _liveRegistrations.where(_activeRegistration).length;
+    final activeLiveRegistrations = _liveRegistrations
+        .where(_activeRegistration)
+        .length;
     final c = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -1241,7 +1230,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
               context,
               'Your shortcuts',
               'Everything one tap away',
-                  () => _tab(context, 1),
+              () => _tab(context, 1),
             ),
             const SizedBox(height: 11),
             Row(
@@ -1252,7 +1241,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                   'Find an event',
                   Icons.explore_rounded,
                   _blue,
-                      () => _tab(context, 1),
+                  () => _tab(context, 1),
                 ),
                 const SizedBox(width: 9),
                 _shortcut(
@@ -1261,7 +1250,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                   'Your QR access',
                   Icons.qr_code_2_rounded,
                   const Color(0xFFBE830B),
-                      () => _tab(context, 2),
+                  () => _tab(context, 2),
                 ),
                 const SizedBox(width: 9),
                 _shortcut(
@@ -1270,7 +1259,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                   'Campus news',
                   Icons.campaign_rounded,
                   _mint,
-                      () => _updates(context),
+                  () => _updates(context),
                 ),
               ],
             ),
@@ -1335,7 +1324,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
               context,
               'At a glance',
               'Your EventEase journey',
-                  () => _tab(context, 2),
+              () => _tab(context, 2),
             ),
             const SizedBox(height: 11),
             Row(
@@ -1345,8 +1334,8 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                   'Registered',
                   _realApiMode
                       ? (_loadingLive || _registrationError != null
-                      ? '—'
-                      : '$activeLiveRegistrations')
+                            ? '—'
+                            : '$activeLiveRegistrations')
                       : '${registeredEvents.length}',
                   Icons.confirmation_number_outlined,
                   _blue,
@@ -1357,8 +1346,8 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                   'Upcoming',
                   _realApiMode
                       ? (_loadingLive || _registrationError != null
-                      ? '—'
-                      : '${liveUpcomingRegistrations.length}')
+                            ? '—'
+                            : '${liveUpcomingRegistrations.length}')
                       : '${upcomingRegistered.length}',
                   Icons.calendar_today_rounded,
                   const Color(0xFFCD9700),
@@ -1369,8 +1358,8 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                   'Attended',
                   _realApiMode
                       ? (_loadingLive || _registrationError != null
-                      ? '—'
-                      : '$liveAttended')
+                            ? '—'
+                            : '$liveAttended')
                       : '$attended',
                   Icons.verified_rounded,
                   _mint,
@@ -1382,7 +1371,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
               context,
               'Coming up for you',
               'Your next registered activity',
-                  () => _tab(context, 2),
+              () => _tab(context, 2),
             ),
             const SizedBox(height: 11),
             if (_realApiMode && liveUpcomingRegistrations.isNotEmpty)
@@ -1398,20 +1387,20 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                 'No upcoming registered events. Browse Events to join one.',
               )
             else if (upcomingRegistered.isEmpty)
-                _empty(context)
-              else
-                _eventTile(
-                  context,
-                  upcomingRegistered.first,
-                  today,
-                  registered: true,
-                ),
+              _empty(context)
+            else
+              _eventTile(
+                context,
+                upcomingRegistered.first,
+                today,
+                registered: true,
+              ),
             const SizedBox(height: 24),
             _heading(
               context,
               'Around campus',
               'See what’s happening at TMC',
-                  () => _tab(context, 1),
+              () => _tab(context, 1),
             ),
             const SizedBox(height: 11),
             if (_realApiMode && liveUpcomingCampus.isNotEmpty)
@@ -1425,26 +1414,26 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                 'No upcoming approved events are currently published by Laravel.',
               )
             else if (aroundCampus.isEmpty)
-                _empty(context)
-              else
-                ...aroundCampus
-                    .take(3)
-                    .map(
-                      (e) => _eventTile(
-                    context,
-                    e,
-                    today,
-                    registered: registeredEvents.any(
-                          (r) => eventKey(r) == eventKey(e),
+              _empty(context)
+            else
+              ...aroundCampus
+                  .take(3)
+                  .map(
+                    (e) => _eventTile(
+                      context,
+                      e,
+                      today,
+                      registered: registeredEvents.any(
+                        (r) => eventKey(r) == eventKey(e),
+                      ),
                     ),
                   ),
-                ),
             const SizedBox(height: 21),
             _heading(
               context,
               'Campus bulletin',
               'Announcements and reminders',
-                  () => _updates(context),
+              () => _updates(context),
             ),
             const SizedBox(height: 11),
             Material(
@@ -1514,4 +1503,3 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
     );
   }
 }
-
