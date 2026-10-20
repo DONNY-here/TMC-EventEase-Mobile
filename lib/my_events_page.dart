@@ -850,6 +850,8 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
   static const Color _blue = Color(0xFF215B99);
   static const Color _gold = Color(0xFFFFCB4D);
   final List<Map<String, dynamic>> _records = [];
+  final Map<String, Map<String, dynamic>> _eventById = {};
+  final Map<String, Map<String, dynamic>> _eventByReference = {};
   bool _loading = true;
   bool _loadingMore = false;
   String? _error;
@@ -1032,6 +1034,67 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
     return 'Laravel returned HTTP ${response.statusCode}.';
   }
 
+  // EventController@index returns the canonical event.registration_fee.
+  // Cross-reference by stable ID/reference; matching event titles is unsafe.
+  Future<List<Map<String, dynamic>>> _fetchPublishedEvents(String token) async {
+    final events = <Map<String, dynamic>>[];
+    var page = 1;
+    var lastPage = 1;
+    do {
+      final response = await http.get(
+        _endpoint('/api/events', query: {'page': '$page'}),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      ).timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) {
+        throw StateError('Could not fetch registration-fee metadata.');
+      }
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map || decoded['data'] is! List) {
+        throw const FormatException('Unexpected Laravel event list.');
+      }
+      for (final entry in decoded['data'] as List) {
+        if (entry is Map) events.add(Map<String, dynamic>.from(entry));
+      }
+      lastPage = int.tryParse('${decoded['last_page'] ?? 1}') ?? 1;
+      if (lastPage > 50) {
+        throw StateError('The event list is too large to fetch here.');
+      }
+      page++;
+    } while (page <= lastPage);
+    return events;
+  }
+
+  Map<String, dynamic>? _matchedEvent(Map<String, dynamic> record) {
+    final nested = record['event'];
+    if (nested is Map && nested.containsKey('registration_fee')) {
+      return Map<String, dynamic>.from(nested);
+    }
+    if (record.containsKey('registration_fee')) return record;
+    final eventId = _str(record, 'event_id');
+    if (eventId.isNotEmpty && _eventById.containsKey(eventId)) {
+      return _eventById[eventId];
+    }
+    final reference = _str(record, 'event_reference');
+    if (reference.isNotEmpty) return _eventByReference[reference];
+    return null;
+  }
+
+  String _feeLabel(Map<String, dynamic> record) {
+    final event = _matchedEvent(record);
+    if (event == null) return 'Fee not available from Laravel';
+    final raw = event['registration_fee'];
+    if (raw == null) return 'Fee not specified by Laravel';
+    final amount = num.tryParse(raw.toString());
+    if (amount == null || !amount.isFinite || amount < 0) {
+      return 'Fee not specified by Laravel';
+    }
+    return amount == 0 ? 'Free registration' : 'Registration fee: ₱${amount.toStringAsFixed(2)}';
+  }
+
   Future<void> _load({bool more = false}) async {
     if (more && (_loadingMore || _loading || _page >= _lastPage)) return;
     final serial = ++_requestSerial;
@@ -1078,9 +1141,30 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
         return Map<String, dynamic>.from(item);
       }).toList();
       final last = int.tryParse('${decoded['last_page'] ?? 1}') ?? 1;
+      // Fees are best-effort metadata. A failure must not hide real passes.
+      List<Map<String, dynamic>>? publishedEvents;
+      if (!more) {
+        try {
+          publishedEvents = await _fetchPublishedEvents(token);
+        } catch (_) {
+          // Registration history remains available even if events cannot load.
+        }
+      }
       if (!mounted || serial != _requestSerial) return;
       setState(() {
-        if (!more) _records.clear();
+        if (!more) {
+          _records.clear();
+          _eventById.clear();
+          _eventByReference.clear();
+          if (publishedEvents != null) {
+            for (final event in publishedEvents) {
+              final id = _str(event, 'id');
+              final reference = _str(event, 'reference');
+              if (id.isNotEmpty) _eventById[id] = event;
+              if (reference.isNotEmpty) _eventByReference[reference] = event;
+            }
+          }
+        }
         final existingIds = _records.map((item) => _str(item, 'id')).toSet();
         for (final row in rows) {
           final id = _str(row, 'id');
@@ -1302,6 +1386,35 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
             'Registration: ${_str(record, 'reference', '—')}',
             style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
           ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.payments_outlined, size: 20, color: scheme.primary),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    _feeLabel(record),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Registration does not confirm payment. Payment verification is managed by Laravel.',
+            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+          ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -1440,7 +1553,7 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
-                          'MY PASSES  •  LARAVEL',
+                          'MY PASSES',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

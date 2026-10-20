@@ -379,7 +379,7 @@ class _DashboardPageState extends State<DashboardPage>
                               ? 'Loading Laravel records'
                               : (_registrationError != null ||
                                     _eventError != null)
-                              ? 'Part of the dashboard is unavailable'
+                              ? 'Some information could not load'
                               : 'Connected to Laravel')
                         : 'Preview data',
                     style: TextStyle(
@@ -412,37 +412,40 @@ class _DashboardPageState extends State<DashboardPage>
     final colors = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border.all(color: colors.outlineVariant),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         children: [
-          Icon(
-            Icons.cloud_sync_outlined,
-            size: 32,
-            color: colors.onSurfaceVariant,
-          ),
-          const SizedBox(height: 9),
+          Icon(Icons.event_available_outlined, color: colors.primary, size: 36),
+          const SizedBox(height: 10),
           Text(
-            'Waiting for server records',
+            'No upcoming events yet',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: colors.onSurface,
+              fontSize: 15,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           Text(
             description,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: colors.onSurfaceVariant,
               fontSize: 12,
-              height: 1.4,
+              height: 1.45,
             ),
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: () => _tab(context, 1),
+            icon: const Icon(Icons.arrow_forward_rounded, size: 17),
+            label: const Text('Browse events'),
           ),
         ],
       ),
@@ -585,7 +588,7 @@ class _DashboardPageState extends State<DashboardPage>
                 title,
                 style: TextStyle(
                   color: c.onSurface,
-                  fontSize: 19,
+                  fontSize: 18,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -.35,
                 ),
@@ -616,6 +619,7 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
+  // Compact mobile-first greeting and one prominent action.
   Widget _hero(
     BuildContext context,
     String firstName,
@@ -625,228 +629,62 @@ class _DashboardPageState extends State<DashboardPage>
   }) {
     return Container(
       width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [_ink, Color(0xFF164873)],
+          colors: [_ink, Color(0xFF20537D)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: _ink.withValues(alpha: .16),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Hi, $firstName 👋',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const Icon(Icons.school_outlined, color: _gold, size: 25),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            upcoming > 0
+                ? 'You have $upcoming upcoming ${upcoming == 1 ? 'event' : 'events'}.'
+                : 'Find your next campus experience.',
+            style: const TextStyle(color: Color(0xFFDCE8F4), fontSize: 13),
+          ),
+          const SizedBox(height: 17),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: () => _tab(context, 1),
+              icon: const Icon(Icons.explore_rounded, size: 20),
+              label: const Text('Explore campus events'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _gold,
+                foregroundColor: _ink,
+                elevation: 0,
+                textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
           ),
         ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: Stack(
-          children: [
-            Positioned(
-              right: -65,
-              top: -85,
-              child: Container(
-                width: 230,
-                height: 230,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: .07),
-                    width: 42,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              right: -25,
-              bottom: -65,
-              child: Container(
-                width: 165,
-                height: 165,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _gold.withValues(alpha: .065),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(22),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      _tag(
-                        '✦  CAMPUS PULSE',
-                        _gold,
-                        Colors.white.withValues(alpha: .11),
-                      ),
-                      const Spacer(),
-                      const Icon(Icons.bolt_rounded, color: _gold, size: 23),
-                    ],
-                  ),
-                  const SizedBox(height: 22),
-                  Text(
-                    'Hello, $firstName 👋',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      letterSpacing: -.7,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _realApiMode
-                        ? (upcoming == 0
-                              ? 'Explore campus events and stay connected.'
-                              : 'You have $upcoming upcoming registered ${upcoming == 1 ? 'event' : 'events'}.')
-                        : upcoming == 0
-                        ? 'Your next campus experience starts here.'
-                        : 'You have $upcoming upcoming registered ${upcoming == 1 ? 'event' : 'events'}.',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFFD1E2F1),
-                      height: 1.45,
-                    ),
-                  ),
-                  const SizedBox(height: 19),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(13),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .10),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: .12),
-                      ),
-                      borderRadius: BorderRadius.circular(17),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: _gold,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.event_rounded,
-                            color: _ink,
-                            size: 21,
-                          ),
-                        ),
-                        const SizedBox(width: 11),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _realApiMode
-                                    ? (liveNext == null
-                                          ? 'CAMPUS EVENTS'
-                                          : 'YOUR NEXT EVENT')
-                                    : nextEvent == null
-                                    ? 'READY FOR SOMETHING NEW?'
-                                    : 'YOUR NEXT EVENT',
-                                style: const TextStyle(
-                                  color: _gold,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: .7,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                _realApiMode
-                                    ? (liveNext == null
-                                          ? 'Explore approved TMC events'
-                                          : _field(
-                                              liveNext,
-                                              'event_title',
-                                              'Upcoming event',
-                                            ))
-                                    : nextEvent?.title ??
-                                          'Explore what’s happening',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              if (_realApiMode && liveNext != null)
-                                Text(
-                                  _field(liveNext, 'event_date'),
-                                  style: const TextStyle(
-                                    color: Color(0xFFD1E2F1),
-                                    fontSize: 11,
-                                  ),
-                                )
-                              else if (!_realApiMode && nextEvent != null)
-                                Text(
-                                  nextEvent.date,
-                                  style: const TextStyle(
-                                    color: Color(0xFFD1E2F1),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.arrow_outward_rounded,
-                          color: Colors.white70,
-                          size: 18,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 17),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _tab(context, 1),
-                          icon: const Icon(Icons.explore_rounded, size: 18),
-                          label: const Text('Explore events'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _gold,
-                            foregroundColor: _ink,
-                            minimumSize: const Size(0, 46),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      IconButton.filledTonal(
-                        tooltip: 'My passes',
-                        onPressed: () => _tab(context, 2),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: .16),
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(48, 46),
-                        ),
-                        icon: const Icon(Icons.qr_code_2_rounded),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1183,7 +1021,7 @@ class _DashboardPageState extends State<DashboardPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'eventease.',
+              'eventEase.',
               style: TextStyle(
                 color: c.onSurface,
                 fontSize: 23,
@@ -1224,12 +1062,17 @@ class _DashboardPageState extends State<DashboardPage>
                   : liveUpcomingRegistrations.first,
             ),
             const SizedBox(height: 14),
-            _sourceNotice(context),
-            const SizedBox(height: 23),
+            if (!_realApiMode ||
+                _registrationError != null ||
+                _eventError != null) ...[
+              _sourceNotice(context),
+              const SizedBox(height: 16),
+            ] else
+              const SizedBox(height: 8),
             _heading(
               context,
-              'Your shortcuts',
-              'Everything one tap away',
+              'Quick access',
+              'Where would you like to go?',
               () => _tab(context, 1),
             ),
             const SizedBox(height: 11),
@@ -1237,8 +1080,8 @@ class _DashboardPageState extends State<DashboardPage>
               children: [
                 _shortcut(
                   context,
-                  'Discover',
-                  'Find an event',
+                  'Events',
+                  'Browse campus',
                   Icons.explore_rounded,
                   _blue,
                   () => _tab(context, 1),
@@ -1247,7 +1090,7 @@ class _DashboardPageState extends State<DashboardPage>
                 _shortcut(
                   context,
                   'My passes',
-                  'Your QR access',
+                  'QR & tickets',
                   Icons.qr_code_2_rounded,
                   const Color(0xFFBE830B),
                   () => _tab(context, 2),
@@ -1255,8 +1098,8 @@ class _DashboardPageState extends State<DashboardPage>
                 const SizedBox(width: 9),
                 _shortcut(
                   context,
-                  'Updates',
-                  'Campus news',
+                  'Notices',
+                  'Campus updates',
                   Icons.campaign_rounded,
                   _mint,
                   () => _updates(context),
@@ -1292,7 +1135,7 @@ class _DashboardPageState extends State<DashboardPage>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Registered Event Attendance & Fines',
+                              'Attendance & fines',
                               style: TextStyle(
                                 color: c.onSurface,
                                 fontSize: 13,
@@ -1301,7 +1144,7 @@ class _DashboardPageState extends State<DashboardPage>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'View fines for registered events',
+                              'View attendance records and fines',
                               style: TextStyle(
                                 color: c.onSurfaceVariant,
                                 fontSize: 11,
@@ -1369,8 +1212,8 @@ class _DashboardPageState extends State<DashboardPage>
             const SizedBox(height: 25),
             _heading(
               context,
-              'Coming up for you',
-              'Your next registered activity',
+              'Your next event',
+              'Your upcoming registered activity',
               () => _tab(context, 2),
             ),
             const SizedBox(height: 11),
@@ -1384,7 +1227,7 @@ class _DashboardPageState extends State<DashboardPage>
               _liveState(
                 context,
                 _registrationError,
-                'No upcoming registered events. Browse Events to join one.',
+                'Register for an event to see it here.',
               )
             else if (upcomingRegistered.isEmpty)
               _empty(context)
@@ -1411,7 +1254,7 @@ class _DashboardPageState extends State<DashboardPage>
               _liveState(
                 context,
                 _eventError,
-                'No upcoming approved events are currently published by Laravel.',
+                'No upcoming campus events have been published yet.',
               )
             else if (aroundCampus.isEmpty)
               _empty(context)

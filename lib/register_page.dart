@@ -5,9 +5,9 @@ part of 'main.dart';
 class StudentIdFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
     final beforeCaret = newValue.selection.baseOffset
         .clamp(0, newValue.text.length)
         .toInt();
@@ -40,7 +40,10 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  final nameController = TextEditingController();
+  final firstNameController = TextEditingController();
+  final middleNameController = TextEditingController();
+  final lastNameController = TextEditingController();
+  final nameExtensionController = TextEditingController();
   final emailController = TextEditingController();
   final studentIdController = TextEditingController();
   final blockController = TextEditingController();
@@ -62,12 +65,24 @@ class _RegisterPageState extends State<RegisterPage> {
   String selectedDepartment = 'College of Computer Studies';
   String selectedCourse = 'BSIT';
   String selectedYear = '1st Year';
+  String? selectedStudentStatus;
   int currentStep = 0;
   bool hidePassword = true;
   bool hideConfirmPassword = true;
   bool acceptedTerms = false;
   bool triedTerms = false;
   bool isSubmitting = false;
+
+  // Laravel currently stores the complete name in user_accounts.name.
+  // Keep the UI fields separate, then send a single formatted name.
+  String get fullName => [
+    firstNameController.text,
+    middleNameController.text,
+    lastNameController.text,
+    nameExtensionController.text,
+  ].map((part) => part.trim().replaceAll(RegExp(r'\s+'), ' '))
+      .where((part) => part.isNotEmpty)
+      .join(' ');
 
   bool hasMinLength(String value) => value.length >= 8;
   bool hasUppercase(String value) => RegExp(r'[A-Z]').hasMatch(value);
@@ -153,7 +168,7 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => triedTerms = true);
     if (!acceptedTerms) return;
 
-    final name = nameController.text.trim();
+    final name = fullName;
     final email = emailController.text.trim();
     final studentId = studentIdController.text.trim();
     final password = passwordController.text;
@@ -177,24 +192,23 @@ class _RegisterPageState extends State<RegisterPage> {
 
         // AuthController expects block_no, not 'block'.
         // Store the number on Laravel, but retain 'Block N' in demo UI.
-        final response = await http
-            .post(
-              registerUri,
-              headers: const {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-              },
-              body: jsonEncode({
-                'name': name,
-                'school_id': studentId,
-                'email': email,
-                'course': selectedCourse,
-                'year': selectedYear,
-                'block_no': block.substring('Block '.length),
-                'password': password,
-              }),
-            )
-            .timeout(const Duration(seconds: 20));
+        final response = await http.post(
+          registerUri,
+          headers: const {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'name': name,
+            'school_id': studentId,
+            'email': email,
+            'course': selectedCourse,
+            'year': selectedYear,
+            'student_status': selectedStudentStatus,
+            'block_no': block.substring('Block '.length),
+            'password': password,
+          }),
+        ).timeout(const Duration(seconds: 20));
 
         if (!mounted) return;
 
@@ -211,8 +225,8 @@ class _RegisterPageState extends State<RegisterPage> {
             title: const Text('Registration Submitted'),
             content: const Text(
               'Your student account was created successfully. '
-              'It is currently Pending and must be activated '
-              'by an administrator before you can sign in.',
+                  'It is currently Pending and must be activated '
+                  'by an administrator before you can sign in.',
             ),
             actions: [
               FilledButton(
@@ -230,7 +244,7 @@ class _RegisterPageState extends State<RegisterPage> {
           showMessage(
             context,
             'Could not reach Laravel. Check your HTTPS URL, '
-            'internet connection, and server status.',
+                'internet connection, and server status.',
           );
         }
       } finally {
@@ -367,20 +381,49 @@ class _RegisterPageState extends State<RegisterPage> {
         'Use your official student details for your account.',
       ),
       field(
-        controller: nameController,
-        label: 'Full name',
-        hint: 'Juan Dela Cruz',
+        controller: firstNameController,
+        label: 'First Name',
+        hint: 'Juan',
         icon: Icons.person_outline_rounded,
         capitalization: TextCapitalization.words,
-        validator: (v) =>
-            (v ?? '').trim().isEmpty ? 'Please enter your full name.' : null,
+        validator: (v) => (v ?? '').trim().isEmpty
+            ? 'Please enter your first name.'
+            : null,
+      ),
+      const SizedBox(height: 16),
+      field(
+        controller: middleNameController,
+        label: 'Middle Name (Optional)',
+        hint: 'Santos',
+        icon: Icons.person_outline_rounded,
+        capitalization: TextCapitalization.words,
+      ),
+      const SizedBox(height: 16),
+      field(
+        controller: lastNameController,
+        label: 'Last Name',
+        hint: 'Dela Cruz',
+        icon: Icons.person_outline_rounded,
+        capitalization: TextCapitalization.words,
+        validator: (v) => (v ?? '').trim().isEmpty
+            ? 'Please enter your last name.'
+            : null,
+      ),
+      const SizedBox(height: 16),
+      field(
+        controller: nameExtensionController,
+        label: 'Name Extension (Optional)',
+        hint: 'Jr., Sr., III',
+        helper: 'Leave blank if not applicable.',
+        icon: Icons.badge_outlined,
+        capitalization: TextCapitalization.words,
       ),
       const SizedBox(height: 16),
       field(
         controller: studentIdController,
         label: 'Student ID',
         hint: '00-000000',
-        helper: 'Two digits, a dash, then six digits',
+        helper: 'Enter your School ID',
         icon: Icons.badge_outlined,
         keyboard: TextInputType.number,
         formatters: [StudentIdFormatter()],
@@ -393,7 +436,7 @@ class _RegisterPageState extends State<RegisterPage> {
         controller: emailController,
         label: 'Email address',
         hint: 'student@example.com',
-        helper: 'An email verification step will be added with Laravel.',
+        helper: 'Enter your email address',
         icon: Icons.mail_outline_rounded,
         keyboard: TextInputType.emailAddress,
         validator: validateEmail,
@@ -418,10 +461,10 @@ class _RegisterPageState extends State<RegisterPage> {
         items: departmentCourses.keys
             .map(
               (d) => DropdownMenuItem(
-                value: d,
-                child: Text(d, overflow: TextOverflow.ellipsis),
-              ),
-            )
+            value: d,
+            child: Text(d, overflow: TextOverflow.ellipsis),
+          ),
+        )
             .toList(),
         onChanged: (v) {
           if (v == null) return;
@@ -465,6 +508,26 @@ class _RegisterPageState extends State<RegisterPage> {
         },
       ),
       const SizedBox(height: 16),
+      DropdownButtonFormField<String>(
+        initialValue: selectedStudentStatus,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Student Status',
+          helperText: 'Select your enrollment status.',
+          prefixIcon: Icon(Icons.how_to_reg_outlined),
+        ),
+        items: const [
+          DropdownMenuItem(value: 'Regular', child: Text('Regular')),
+          DropdownMenuItem(value: 'Irregular', child: Text('Irregular')),
+        ],
+        validator: (value) => value == null
+            ? 'Please select Regular or Irregular.'
+            : null,
+        onChanged: (value) {
+          setState(() => selectedStudentStatus = value);
+        },
+      ),
+      const SizedBox(height: 16),
       field(
         controller: blockController,
         label: 'Block / Section',
@@ -482,6 +545,65 @@ class _RegisterPageState extends State<RegisterPage> {
       ),
     ],
   );
+
+  // These are draft policy texts. Replace with institution-approved versions
+  // before deploying registration to real students.
+  Future<void> _showRegistrationPolicy({required bool privacy}) async {
+    final title = privacy ? 'Privacy Policy' : 'Terms and Conditions';
+    final content = privacy
+        ? '''TMC EventEase — Privacy Policy
+
+1. Information collected
+During student registration, EventEase collects the name, School ID, email address, department, course, year level, block, and student status provided in the form. Event participation and attendance information may also be processed when you use the system.
+
+2. Purpose of collection
+This information is intended for account verification, student event eligibility, event registration, attendance management, notifications, and related school administrative processes.
+
+3. Access and retention
+Authorized school personnel may access information needed for their assigned roles. Data retention periods, actual recipients, contact details, and student rights procedures must be defined in the institution-approved policy.
+
+4. Questions and requests
+Before deployment, the institution should provide its official privacy contact and instructions for access, correction, and other applicable data privacy requests.
+
+This is a draft for institutional review, not the final approved privacy notice.'''
+        : '''TMC EventEase — Terms and Conditions (DRAFT FOR REVIEW)
+
+1. Account information
+Students must use their own accurate School ID and academic information. Accounts may require administrator activation before login.
+
+2. Account security
+Keep passwords confidential. Do not share accounts or QR passes or impersonate another student.
+
+3. Event participation
+Registration is subject to the event's eligibility rules, capacity, schedule, and any applicable registration fee. A registration confirmation does not by itself prove that a fee has been paid.
+
+4. Attendance and evaluations
+Attendance must be recorded through authorized procedures. Evaluations and certificates are subject to each event's published rules.
+
+5. Cancellations and fees
+Applicable cancellation, refund, and payment instructions must be announced by the responsible school personnel. No payment method is established by these draft terms.
+
+This is a draft for institutional review, not the final approved terms.''';
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: SizedBox(
+          width: 440,
+          child: SingleChildScrollView(
+            child: SelectableText(content),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget securityStep() {
     final password = passwordController.text;
@@ -580,16 +702,34 @@ class _RegisterPageState extends State<RegisterPage> {
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,
           title: const Text(
-            'I agree to use my details for this demo registration.',
-            style: TextStyle(fontSize: 13),
+            'I have read and agree to the Terms and Conditions and Privacy Policy of TMC EventEase.',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
-          onChanged: (v) => setState(() => acceptedTerms = v ?? false),
+          onChanged: (value) {
+            setState(() => acceptedTerms = value ?? false);
+          },
+        ),
+        Wrap(
+          spacing: 4,
+          runSpacing: 0,
+          children: [
+            TextButton.icon(
+              onPressed: () => _showRegistrationPolicy(privacy: false),
+              icon: const Icon(Icons.description_outlined, size: 17),
+              label: const Text('Read Terms and Conditions'),
+            ),
+            TextButton.icon(
+              onPressed: () => _showRegistrationPolicy(privacy: true),
+              icon: const Icon(Icons.privacy_tip_outlined, size: 17),
+              label: const Text('Read Privacy Policy'),
+            ),
+          ],
         ),
         if (triedTerms && !acceptedTerms)
           const Padding(
             padding: EdgeInsets.only(left: 12),
             child: Text(
-              'Please accept before continuing.',
+              'Please agree to the Terms and Conditions and Privacy Policy to continue.',
               style: TextStyle(color: Colors.red, fontSize: 12),
             ),
           ),
@@ -599,7 +739,10 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   void dispose() {
-    nameController.dispose();
+    firstNameController.dispose();
+    middleNameController.dispose();
+    lastNameController.dispose();
+    nameExtensionController.dispose();
     emailController.dispose();
     studentIdController.dispose();
     blockController.dispose();
@@ -737,9 +880,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                   ),
                                   label: Text(
                                     currentStep == 2
-                                        ? (isSubmitting
-                                              ? 'Creating Account...'
-                                              : 'Create Account')
+                                        ? (isSubmitting ? 'Creating Account...' : 'Create Account')
                                         : 'Continue',
                                   ),
                                 ),
@@ -770,3 +911,4 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 }
+
