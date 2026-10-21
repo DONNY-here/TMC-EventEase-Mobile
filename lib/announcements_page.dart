@@ -129,13 +129,13 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
       do {
         final response = await http
             .get(
-              _announcementEndpoint(page),
-              headers: {
-                'Accept': 'application/json',
-                'Authorization': 'Bearer $token',
-                'ngrok-skip-browser-warning': 'true',
-              },
-            )
+          _announcementEndpoint(page),
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        )
             .timeout(const Duration(seconds: 20));
         if (response.statusCode == 401) {
           throw StateError('Your session expired. Sign in again.');
@@ -262,6 +262,9 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
     return items.reversed.toList();
   }
 
+  static const Color _navy = Color(0xFF102A4C);
+  static const Color _gold = Color(0xFFFFCB4D);
+
   Future<void> _openNotification(_EventEaseNotification notification) async {
     markNotificationAsRead(notification.id);
     if (notification.event != null && !ApiConfig.useRealApi) {
@@ -270,295 +273,246 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
         animatedRoute(EventDetailsPage(event: notification.event!)),
       );
       if (mounted) setState(() {});
-    } else if (mounted) {
-      // Laravel announcements have no verified deep-link event reference.
-      // Show their content instead of navigating to sample event data.
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(notification.title),
-          content: Text(
-            notification.message.isEmpty
-                ? 'No additional information was provided.'
-                : notification.message,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      );
+      return;
     }
+    if (!mounted) return;
+    final scheme = Theme.of(context).colorScheme;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        contentPadding: const EdgeInsets.fromLTRB(22, 22, 22, 8),
+        actionsPadding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: _gold.withValues(alpha: .18),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(notification.icon, color: _navy, size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        notification.category,
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close notification',
+                      onPressed: () => Navigator.pop(dialogContext),
+                      icon: Icon(Icons.close_rounded, color: scheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  notification.title,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SelectableText(
+                  notification.message.isEmpty
+                      ? 'No additional information was provided.'
+                      : notification.message,
+                  style: TextStyle(color: scheme.onSurface, height: 1.55, fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              style: FilledButton.styleFrom(
+                backgroundColor: _navy,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Got it'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final background = isDark ? const Color(0xFF0B1424) : const Color(0xFFF4F6FA);
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
+      backgroundColor: background,
+      appBar: AppBar(
+        title: const Text('Notifications'),
+        backgroundColor: _navy,
+        foregroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: ApiConfig.useRealApi
             ? _loadLiveAnnouncements
-            : () async {
-                if (mounted) setState(() {});
-              },
+            : () async { if (mounted) setState(() {}); },
         child: ValueListenableBuilder<Set<String>>(
           valueListenable: readNotificationIds,
           builder: (context, readIds, _) {
             final notifications = _notifications();
-            final unread = notifications
-                .where((n) => !readIds.contains(n.id))
-                .length;
-            final colors = Theme.of(context).colorScheme;
-            final visible = notifications
-                .where(
-                  (n) =>
-                      (_filter == 'All' || n.category == _filter) &&
-                      (!_unreadOnly || !readIds.contains(n.id)),
-                )
-                .toList();
+            final unread = notifications.where((n) => !readIds.contains(n.id)).length;
+            final visible = notifications.where((n) =>
+            (_filter == 'All' || n.category == _filter) &&
+                (!_unreadOnly || !readIds.contains(n.id))
+            ).toList();
+            final isBusy = ApiConfig.useRealApi && _liveLoading;
+            final hasError = ApiConfig.useRealApi && _liveError != null;
 
             return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
                 Container(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
                   decoration: BoxDecoration(
                     gradient: appGradient,
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.notifications_active_rounded,
-                        color: yellow,
-                        size: 30,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Stay Updated',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '$unread unread notification${unread == 1 ? '' : 's'}',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12.5,
-                              ),
-                            ),
-                          ],
+                      Container(
+                        width: 48, height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: .13),
+                          borderRadius: BorderRadius.circular(15),
                         ),
+                        child: const Icon(Icons.notifications_active_rounded, color: _gold, size: 27),
                       ),
+                      const SizedBox(width: 13),
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Stay updated', style: TextStyle(
+                              color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 3),
+                          Text(isBusy ? 'Loading your updates…' :
+                          unread == 0 ? 'You’re all caught up' :
+                          '$unread unread notification${unread == 1 ? '' : 's'}',
+                              style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+                        ],
+                      )),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Recent Updates',
-                        style: TextStyle(
-                          color: colors.onSurface,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed:
-                          unread == 0 ||
-                              (ApiConfig.useRealApi &&
-                                  (_liveLoading || _liveError != null))
-                          ? null
-                          : () {
-                              readNotificationIds.value = {
-                                ...readNotificationIds.value,
-                                ...notifications.map((notice) => notice.id),
-                              };
-                            },
-                      child: const Text('Mark all as read'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 20),
+                Row(children: [
+                  Expanded(child: Text('Recent updates', style: TextStyle(
+                      fontSize: 17, color: scheme.onSurface, fontWeight: FontWeight.w800))),
+                  TextButton(
+                    onPressed: unread == 0 || isBusy || hasError ? null : () {
+                      readNotificationIds.value = {
+                        ...readNotificationIds.value,
+                        ...notifications.map((notice) => notice.id),
+                      };
+                    },
+                    child: const Text('Mark all read', style: TextStyle(fontSize: 12)),
+                  ),
+                ]),
+                const SizedBox(height: 6),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children:
-                        [
-                              'All',
-                              'Announcements',
-                              'Events',
-                              'Attendance',
-                              'Certificates',
-                            ]
-                            .map(
-                              (category) => Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: ChoiceChip(
-                                  label: Text(category),
-                                  selected: _filter == category,
-                                  onSelected: (_) =>
-                                      setState(() => _filter = category),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    FilterChip(
-                      label: const Text('Unread only'),
-                      selected: _unreadOnly,
-                      onSelected: (value) =>
-                          setState(() => _unreadOnly = value),
-                    ),
-                    const Spacer(),
-                    if (!ApiConfig.useRealApi)
-                      Text(
-                        'DEMO',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: colors.onSurfaceVariant,
+                  child: Row(children: [
+                    for (final category in const ['All', 'Announcements', 'Events', 'Attendance', 'Certificates'])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(category),
+                          selected: _filter == category,
+                          showCheckmark: false,
+                          onSelected: (_) => setState(() => _filter = category),
+                          selectedColor: isDark ? const Color(0xFF284B71) : const Color(0xFFE4EDF8),
+                          labelStyle: TextStyle(
+                            color: scheme.onSurface,
+                            fontSize: 12,
+                            fontWeight: _filter == category ? FontWeight.w800 : FontWeight.w500,
+                          ),
+                          side: BorderSide(color: scheme.outlineVariant),
                         ),
                       ),
-                  ],
+                  ]),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 6),
+                Row(children: [
+                  FilterChip(
+                    label: const Text('Unread only'),
+                    selected: _unreadOnly,
+                    showCheckmark: true,
+                    onSelected: (v) => setState(() => _unreadOnly = v),
+                  ),
+                  const Spacer(),
+                  if (!ApiConfig.useRealApi)
+                    Text('DEMO', style: TextStyle(color: scheme.onSurfaceVariant,
+                        fontSize: 11, fontWeight: FontWeight.w800)),
+                ]),
+                const SizedBox(height: 10),
                 if (ApiConfig.useRealApi)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 10),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
                     child: Text(
-                      'Read status is saved in this app session. Pull down to refresh live announcements.',
-                      style: TextStyle(fontSize: 11),
+                      'Announcements from the campus server. Read indicators are managed locally.',
+                      style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                     ),
                   ),
-                if (ApiConfig.useRealApi && _liveLoading)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 35),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (ApiConfig.useRealApi && _liveError != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 27),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.cloud_off_rounded, size: 35),
-                        const SizedBox(height: 10),
-                        Text(_liveError!, textAlign: TextAlign.center),
-                        const SizedBox(height: 10),
-                        OutlinedButton.icon(
-                          onPressed: _loadLiveAnnouncements,
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Retry'),
-                        ),
-                      ],
-                    ),
+                if (isBusy)
+                  const Padding(padding: EdgeInsets.symmetric(vertical: 42),
+                      child: Center(child: CircularProgressIndicator()))
+                else if (hasError)
+                  _notificationEmptyState(
+                    icon: Icons.wifi_off_rounded,
+                    title: 'Could not load notifications',
+                    subtitle: _liveError!,
+                    scheme: scheme,
+                    onRetry: _loadLiveAnnouncements,
                   )
                 else if (visible.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40),
-                    child: Center(
-                      child: Text(
-                        _unreadOnly
-                            ? 'No unread notifications match these filters.'
-                            : 'No notifications in this category.',
-                        style: TextStyle(color: colors.onSurfaceVariant),
-                      ),
-                    ),
-                  ),
-                if (!_liveLoading && _liveError == null)
-                  ...visible.map((notification) {
-                    final isUnread = !readIds.contains(notification.id);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Material(
-                        color: isUnread
-                            ? colors.primary.withValues(alpha: 0.08)
-                            : colors.surface,
-                        borderRadius: BorderRadius.circular(18),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: () => _openNotification(notification),
-                          child: Container(
-                            padding: const EdgeInsets.all(15),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: colors.outlineVariant),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 45,
-                                  height: 45,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF5D8),
-                                    borderRadius: BorderRadius.circular(13),
-                                  ),
-                                  child: Icon(
-                                    notification.icon,
-                                    color: navy,
-                                    size: 23,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        notification.title,
-                                        style: TextStyle(
-                                          color: colors.onSurface,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        notification.message,
-                                        style: TextStyle(
-                                          color: colors.onSurfaceVariant,
-                                          fontSize: 12.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (isUnread)
-                                  const Padding(
-                                    padding: EdgeInsets.only(left: 8),
-                                    child: CircleAvatar(
-                                      radius: 4,
-                                      backgroundColor: yellow,
-                                    ),
-                                  )
-                                else
-                                  Icon(
-                                    Icons.chevron_right_rounded,
-                                    color: colors.onSurfaceVariant,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
+                    _notificationEmptyState(
+                      icon: _unreadOnly ? Icons.mark_email_read_outlined : Icons.notifications_none_rounded,
+                      title: _unreadOnly ? 'No unread updates' : 'Nothing here yet',
+                      subtitle: _unreadOnly
+                          ? 'You have no unread notifications in this category.'
+                          : 'New campus updates will appear here.',
+                      scheme: scheme,
+                    )
+                  else
+                    for (final notification in visible)
+                      _notificationTile(notification, !readIds.contains(notification.id), scheme, isDark),
               ],
             );
           },
@@ -566,4 +520,94 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
       ),
     );
   }
+
+  Widget _notificationTile(_EventEaseNotification notice, bool unread,
+      ColorScheme scheme, bool isDark) {
+    final border = scheme.outlineVariant;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(17),
+        child: InkWell(
+          onTap: () => _openNotification(notice),
+          borderRadius: BorderRadius.circular(17),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(color: unread ? _gold.withValues(alpha: .65) : border),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 45, height: 45,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF314057) : const Color(0xFFFFF3D2),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(notice.icon, color: isDark ? _gold : _navy, size: 23),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(child: Text(notice.title, maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800,
+                              color: scheme.onSurface))),
+                      if (unread) ...[
+                        const SizedBox(width: 8),
+                        const CircleAvatar(radius: 4, backgroundColor: _gold),
+                      ],
+                    ]),
+                    const SizedBox(height: 5),
+                    Text(notice.message.isEmpty ? 'Tap to read this notification' : notice.message,
+                        maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12.5, height: 1.4,
+                            color: scheme.onSurfaceVariant)),
+                    const SizedBox(height: 8),
+                    Text(notice.category, style: TextStyle(fontSize: 11,
+                        fontWeight: FontWeight.w700, color: scheme.primary)),
+                  ],
+                )),
+                const SizedBox(width: 4),
+                Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _notificationEmptyState({required IconData icon, required String title,
+    required String subtitle, required ColorScheme scheme,
+    VoidCallback? onRetry}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 35),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border.all(color: scheme.outlineVariant),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(children: [
+        Icon(icon, color: scheme.onSurfaceVariant, size: 38),
+        const SizedBox(height: 11),
+        Text(title, textAlign: TextAlign.center,
+            style: TextStyle(color: scheme.onSurface, fontWeight: FontWeight.w800, fontSize: 15)),
+        const SizedBox(height: 7),
+        Text(subtitle, textAlign: TextAlign.center,
+            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12.5)),
+        if (onRetry != null) ...[
+          const SizedBox(height: 15),
+          OutlinedButton.icon(onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded), label: const Text('Try again')),
+        ],
+      ]),
+    );
+  }
 }
+

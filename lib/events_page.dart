@@ -89,13 +89,13 @@ class _EventsPageState extends State<EventsPage> {
 
   List<String> get _departments {
     final values =
-        eventList
-            .where((e) => e.scope == 'Department-Specific')
-            .map((e) => e.department.trim())
-            .where((v) => v.isNotEmpty && v != 'All Departments')
-            .toSet()
-            .toList()
-          ..sort();
+    eventList
+        .where((e) => e.scope == 'Department-Specific')
+        .map((e) => e.department.trim())
+        .where((v) => v.isNotEmpty && v != 'All Departments')
+        .toSet()
+        .toList()
+      ..sort();
     return ['All Departments', ...values];
   }
 
@@ -106,9 +106,9 @@ class _EventsPageState extends State<EventsPage> {
     final events = eventList.where((event) {
       final matchesText =
           query.isEmpty ||
-          '${event.title} ${event.venue} ${event.description} ${event.department}'
-              .toLowerCase()
-              .contains(query);
+              '${event.title} ${event.venue} ${event.description} ${event.department}'
+                  .toLowerCase()
+                  .contains(query);
       final matchesScope = _scope == 'All Events' || event.scope == _scope;
       final matchesDepartment =
           _department == 'All Departments' || event.department == _department;
@@ -258,14 +258,14 @@ class _EventsPageState extends State<EventsPage> {
     items: options
         .map(
           (option) => DropdownMenuItem<String>(
-            value: option,
-            child: Text(
-              option,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12),
-            ),
-          ),
-        )
+        value: option,
+        child: Text(
+          option,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12),
+        ),
+      ),
+    )
         .toList(),
     onChanged: (value) {
       if (value != null) onChanged(value);
@@ -572,13 +572,13 @@ class _EventsPageState extends State<EventsPage> {
 
       final response = await http
           .get(
-            uri,
-            headers: {
-              'Accept': 'application/json',
-              'Authorization': 'Bearer $token',
-              'ngrok-skip-browser-warning': 'true',
-            },
-          )
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      )
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 401) {
@@ -599,9 +599,7 @@ class _EventsPageState extends State<EventsPage> {
 
       final decoded = jsonDecode(response.body);
       if (decoded is! Map || decoded['data'] is! List) {
-        throw const FormatException(
-          'Unexpected events response format.',
-        );
+        throw const FormatException('Unexpected events response format.');
       }
 
       final rawEvents = decoded['data'] as List;
@@ -694,12 +692,12 @@ class _EventsPageState extends State<EventsPage> {
 
   List<String> get _liveDepartments {
     final values =
-        _liveEvents
-            .map((event) => _liveString(event['target_department']))
-            .where((department) => department.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
+    _liveEvents
+        .map((event) => _liveString(event['target_department']))
+        .where((department) => department.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
     return ['All Departments', ...values];
   }
 
@@ -779,9 +777,9 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   Widget _liveEventDetailsPage(
-    Map<String, dynamic> event,
-    GlobalKey<_LiveParticipantCounterState> participantKey,
-  ) {
+      Map<String, dynamic> event,
+      GlobalKey<_LiveParticipantCounterState> participantKey,
+      ) {
     final colors = Theme.of(context).colorScheme;
     final title = _liveString(event['title']);
     final date = _friendlyDate(event['event_date']);
@@ -793,13 +791,6 @@ class _EventsPageState extends State<EventsPage> {
     final status = _liveString(event['status']);
     final id = _liveString(event['id']);
     final past = _liveIsPast(event);
-    final targets = <String, String>{
-      'Role': _liveString(event['target_role']),
-      'Department': _liveString(event['target_department']),
-      'Course': _liveString(event['target_course']),
-      'Year level': _liveString(event['target_year']),
-      'Block': _liveString(event['target_block']),
-    }..removeWhere((_, value) => value.isEmpty);
 
     Widget detailRow(IconData icon, String label, String value) {
       return Padding(
@@ -1004,23 +995,9 @@ class _EventsPageState extends State<EventsPage> {
                 ),
               ),
             ),
-            if (targets.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              sectionTitle('Who can register?'),
-              sectionCard(
-                child: Column(
-                  children: [
-                    for (final entry in targets.entries) ...[
-                      detailRow(
-                        Icons.fact_check_outlined,
-                        entry.key,
-                        entry.value,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
+            const SizedBox(height: 24),
+            sectionTitle('Who can register?'),
+            _EventEaseEligibilityCard(event: event),
             const SizedBox(height: 22),
             _LiveLaravelRegistrationActions(
               event: event,
@@ -1084,27 +1061,27 @@ class _EventsPageState extends State<EventsPage> {
                   ),
                   child: dateValue != null
                       ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              months[dateValue.month - 1],
-                              style: const TextStyle(
-                                color: _gold,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${dateValue.day}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 27,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
-                        )
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        months[dateValue.month - 1],
+                        style: const TextStyle(
+                          color: _gold,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${dateValue.day}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 27,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  )
                       : const Icon(Icons.event_rounded, color: _gold, size: 28),
                 ),
                 const SizedBox(width: 12),
@@ -1165,8 +1142,8 @@ class _EventsPageState extends State<EventsPage> {
     final hasSearch = _search.trim().isNotEmpty;
     final hasFilters =
         _status != 'All' ||
-        _liveAudience != 'All Audiences' ||
-        _department != 'All Departments';
+            _liveAudience != 'All Audiences' ||
+            _department != 'All Departments';
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
@@ -1413,7 +1390,7 @@ class _EventsPageState extends State<EventsPage> {
                         onPressed: realMode
                             ? null
                             : () =>
-                                  setState(() => _showFilters = !_showFilters),
+                            setState(() => _showFilters = !_showFilters),
                         icon: const Icon(Icons.tune_rounded),
                       ),
                       border: OutlineInputBorder(
@@ -1538,18 +1515,18 @@ class _LiveLaravelRegistrationActionsState
         );
         final response = await http
             .get(
-              uri,
-              headers: {
-                'Accept': 'application/json',
-                'Authorization': 'Bearer $token',
-                'ngrok-skip-browser-warning': 'true',
-              },
-            )
+          uri,
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+            'ngrok-skip-browser-warning': 'true',
+          },
+        )
             .timeout(const Duration(seconds: 20));
         if (response.statusCode != 200) {
           throw StateError(
             'Could not verify existing registrations '
-            '(HTTP ${response.statusCode}).',
+                '(HTTP ${response.statusCode}).',
           );
         }
         final decoded = jsonDecode(response.body);
@@ -1643,14 +1620,8 @@ class _LiveLaravelRegistrationActionsState
       }
     }
 
-    final capacity = int.tryParse(_field('capacity'));
-    final participants = int.tryParse(_field('participants'));
-    if (capacity != null &&
-        capacity > 0 &&
-        participants != null &&
-        participants >= capacity) {
-      return 'This event has reached its participant capacity.';
-    }
+    // The event snapshot may have a stale `participants` column.
+    // Laravel's registration endpoint enforces the actual capacity atomically.
     if (_eventId == null) return 'Missing Laravel event ID.';
     if (_eventReference.isEmpty) return 'Missing Laravel event reference.';
     return null;
@@ -1699,8 +1670,8 @@ class _LiveLaravelRegistrationActionsState
         title: const Text('Confirm registration'),
         content: Text(
           'Submit your student account to Laravel for '
-          '"${_field('title')}"? The server will check eligibility, '
-          'capacity, and duplicate registrations.',
+              '"${_field('title')}"? The server will check eligibility, '
+              'capacity, and duplicate registrations.',
         ),
         actions: [
           TextButton(
@@ -1746,15 +1717,15 @@ class _LiveLaravelRegistrationActionsState
       // not the numeric database ID. Backend determines eligibility and status.
       final response = await http
           .post(
-            uri,
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-              'ngrok-skip-browser-warning': 'true',
-            },
-            body: jsonEncode({'event_reference': _eventReference}),
-          )
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({'event_reference': _eventReference}),
+      )
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -1764,7 +1735,7 @@ class _LiveLaravelRegistrationActionsState
           _serverAccepted = true;
           _feedbackIsError = false;
           _feedback =
-              'Your registration is accepted.'
+          'Your registration is accepted.'
               'The registration and any QR credential are managed by the server.';
         });
         widget.onSuccessfulRegistration();
@@ -1773,7 +1744,7 @@ class _LiveLaravelRegistrationActionsState
         if (!mounted) return;
         final duplicate =
             message.toLowerCase().contains('already registered') ||
-            message.toLowerCase().contains('already enrolled');
+                message.toLowerCase().contains('already enrolled');
         setState(() {
           if (duplicate) _alreadyRegistered = true;
           _feedback = duplicate
@@ -1792,7 +1763,7 @@ class _LiveLaravelRegistrationActionsState
       if (!mounted) return;
       setState(() {
         _feedback =
-            'Could not submit registration. Check your Internet, '
+        'Could not submit registration. Check your Internet, '
             'Laravel server, and ngrok tunnel, then try again.';
         _feedbackIsError = true;
       });
@@ -1807,10 +1778,10 @@ class _LiveLaravelRegistrationActionsState
     final reason = _unavailableReason;
     final canRegister =
         !_serverAccepted &&
-        !_alreadyRegistered &&
-        !_checkingRegistration &&
-        !_registrationCheckFailed &&
-        reason == null;
+            !_alreadyRegistered &&
+            !_checkingRegistration &&
+            !_registrationCheckFailed &&
+            reason == null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1835,8 +1806,6 @@ class _LiveLaravelRegistrationActionsState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (_serverAccepted || _alreadyRegistered)
-
               if (reason != null && !_serverAccepted && !_alreadyRegistered)
                 Text(
                   reason,
@@ -1859,17 +1828,17 @@ class _LiveLaravelRegistrationActionsState
                   ),
                   icon: (_isSubmitting || _checkingRegistration)
                       ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                       : Icon(
-                          (_serverAccepted || _alreadyRegistered)
-                              ? Icons.check_circle_rounded
-                              : reason != null
-                              ? Icons.event_busy_rounded
-                              : Icons.how_to_reg_rounded,
-                        ),
+                    (_serverAccepted || _alreadyRegistered)
+                        ? Icons.check_circle_rounded
+                        : reason != null
+                        ? Icons.event_busy_rounded
+                        : Icons.how_to_reg_rounded,
+                  ),
                   label: Text(
                     _isSubmitting
                         ? 'Submitting...'
@@ -1926,7 +1895,6 @@ class _LiveLaravelRegistrationActionsState
                 ),
               ],
               const SizedBox(height: 12),
-
             ],
           ),
         ),
@@ -1938,6 +1906,504 @@ class _LiveLaravelRegistrationActionsState
 // Server-backed participant count for the REAL API event details screen.
 // Refreshes when opened, every 30 seconds while visible, and after registering.
 // It never adds local demo registrations to Laravel's count.
+// Student-facing eligibility guidance. Only Laravel may authorize a registration.
+class _EventEaseEligibilityCard extends StatefulWidget {
+  final Map<String, dynamic> event;
+  const _EventEaseEligibilityCard({required this.event});
+
+  @override
+  State<_EventEaseEligibilityCard> createState() =>
+      _EventEaseEligibilityCardState();
+}
+
+class _EventEaseEligibilityCardState extends State<_EventEaseEligibilityCard> {
+  Map<String, dynamic>? _student;
+  bool _loading = true;
+  bool _expanded = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final token = await authTokenStorage.readValidToken();
+      if (token == null || token.isEmpty) {
+        throw StateError('Sign in again to check your profile.');
+      }
+      final origin = Uri.tryParse(ApiConfig.baseUrl.trim());
+      if (origin == null ||
+          origin.scheme != 'https' ||
+          origin.host.isEmpty ||
+          origin.userInfo.isNotEmpty ||
+          (origin.path.isNotEmpty && origin.path != '/')) {
+        throw StateError('The secure API address is not configured.');
+      }
+      final response = await http
+          .get(
+        origin.replace(path: '/api/auth/me', query: null, fragment: null),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) {
+        throw StateError(
+          'Could not read your account (HTTP ${response.statusCode}).',
+        );
+      }
+      final data = jsonDecode(response.body);
+      if (data is! Map) {
+        throw const FormatException('Unexpected profile response.');
+      }
+      final account = data['user'] is Map ? data['user'] : data;
+      if (account is! Map) {
+        throw const FormatException('Unexpected account data.');
+      }
+      if (!mounted) return;
+      setState(() {
+        _student = Map<String, dynamic>.from(account);
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error =
+        'Could not verify your profile. Check your connection and retry.';
+      });
+    }
+  }
+
+  String _text(Object? value) => (value ?? '').toString().trim();
+  String _normalized(Object? value) {
+    var s = _text(value).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    if (s == 'bsit' || s == 'bsinformationtechnology') {
+      return 'bsinformationtechnology';
+    }
+    if (s == 'ccs' || s == 'collegeofcomputerstudies') {
+      return 'ccs';
+    }
+    if (s.startsWith('block')) {
+      s = s.substring(5);
+    }
+    if (s.endsWith('year')) {
+      s = s.substring(0, s.length - 4);
+    }
+    if (s == 'first') {
+      return '1';
+    }
+    if (s == 'second') {
+      return '2';
+    }
+    if (s == 'third') {
+      return '3';
+    }
+    if (s == 'fourth') {
+      return '4';
+    }
+    if (s.endsWith('st') ||
+        s.endsWith('nd') ||
+        s.endsWith('rd') ||
+        s.endsWith('th')) {
+      s = s.substring(0, s.length - 2);
+    }
+    return s;
+  }
+
+  // Only administrator-selected restrictions appear to students.
+  // Unrestricted fields must never be presented as extra requirements.
+  bool _unrestricted(String requirement) {
+    final r = requirement.trim().toLowerCase();
+    return r.isEmpty ||
+        r == 'all' ||
+        r == 'any' ||
+        r == 'all students' ||
+        r == 'all roles' ||
+        r == 'all account roles' ||
+        r == 'all courses' ||
+        r == 'all programs' ||
+        r == 'all blocks' ||
+        r == 'all years' ||
+        r == 'all year levels' ||
+        r == 'all departments' ||
+        r == 'all statuses' ||
+        r == 'everyone';
+  }
+
+  bool? _compare(String required, String actual) {
+    if (_unrestricted(required)) return true;
+    if (actual.trim().isEmpty) return null;
+    // Delimited multiple target values are supported as display hints only.
+    final alternatives = required
+        .split(RegExp(r'[,;|]'))
+        .map(_normalized)
+        .toList();
+    return alternatives.contains(_normalized(actual));
+  }
+
+  Widget _requirementRow(
+      IconData icon,
+      String name,
+      String requirement,
+      String actual,
+      ColorScheme scheme,
+      List<String> mismatches,
+      List<String> unknowns, {
+        bool backendSupported = true,
+      }) {
+    final isAll = _unrestricted(requirement);
+    final verdict = backendSupported ? _compare(requirement, actual) : null;
+    if (backendSupported && verdict == false) {
+      mismatches.add(name);
+    }
+    if (backendSupported && verdict == null) {
+      unknowns.add(name);
+    }
+    final label = isAll ? 'All students' : requirement;
+    final secondary = !backendSupported
+        ? 'For reference only — not enforced by the current event API'
+        : isAll
+        ? 'No restriction for this field'
+        : actual.isEmpty
+        ? 'Your account value is unavailable'
+        : 'Your profile: $actual';
+    final color = !backendSupported || verdict == null
+        ? scheme.onSurfaceVariant
+        : verdict
+        ? const Color(0xFF15815B)
+        : scheme.error;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, size: 19, color: scheme.primary),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  secondary,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Icon(
+            !backendSupported
+                ? Icons.info_outline_rounded
+                : verdict == null
+                ? Icons.help_outline_rounded
+                : verdict
+                ? Icons.check_circle_rounded
+                : Icons.cancel_rounded,
+            color: color,
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final event = widget.event;
+    final student = _student ?? <String, dynamic>{};
+    final failures = <String>[];
+    final unknowns = <String>[];
+    final role = _text(event['target_role']);
+    final roleActual = _text(student['role']);
+    final department = _text(
+      student['department'] ??
+          student['department_code'] ??
+          student['department_name'],
+    );
+    final course = _text(student['course']);
+    final year = _text(student['year']);
+    final block = _text(student['block_no'] ?? student['block']);
+
+    Widget content;
+    String overview = 'Checking your eligibility details';
+    IconData overviewIcon = Icons.hourglass_top_rounded;
+    if (_loading) {
+      content = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 22),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Expanded(child: Text('Checking your student profile...')),
+          ],
+        ),
+      );
+    } else if (_error != null) {
+      overview = 'Profile check unavailable';
+      overviewIcon = Icons.info_outline_rounded;
+      content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(_error!, style: TextStyle(color: scheme.error)),
+          TextButton.icon(
+            onPressed: _loadProfile,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry profile check'),
+          ),
+        ],
+      );
+    } else {
+      // The admin's event fields are the only source of visible restrictions.
+      // Do not manufacture a role restriction when target_role is "All".
+      final rows = <Widget>[
+        if (!_unrestricted(role))
+          _requirementRow(
+            Icons.person_outline_rounded,
+            'Participant type',
+            role,
+            roleActual,
+            scheme,
+            failures,
+            unknowns,
+          ),
+        if (!_unrestricted(_text(event['target_department'])))
+          _requirementRow(
+            Icons.account_balance_outlined,
+            'Department',
+            _text(event['target_department']),
+            department,
+            scheme,
+            failures,
+            unknowns,
+          ),
+        if (!_unrestricted(_text(event['target_course'])))
+          _requirementRow(
+            Icons.school_outlined,
+            'Course / Program',
+            _text(event['target_course']),
+            course,
+            scheme,
+            failures,
+            unknowns,
+          ),
+        if (!_unrestricted(_text(event['target_year'])))
+          _requirementRow(
+            Icons.calendar_month_outlined,
+            'Year Level',
+            _text(event['target_year']),
+            year,
+            scheme,
+            failures,
+            unknowns,
+          ),
+        if (!_unrestricted(_text(event['target_block'])))
+          _requirementRow(
+            Icons.groups_outlined,
+            'Block',
+            _text(event['target_block']),
+            block,
+            scheme,
+            failures,
+            unknowns,
+          ),
+      ];
+      // Student Status is intentionally not used as an event restriction:
+      // the current Laravel event API has no verified status-targeting rule.
+      final mismatch = failures.isNotEmpty;
+      final uncertain = unknowns.isNotEmpty;
+      final title = rows.isEmpty
+          ? 'No specific participation restrictions'
+          : mismatch
+          ? 'Your profile may not meet the event requirements'
+          : uncertain
+          ? 'Some profile details could not be checked'
+          : 'Your profile appears to match the event requirements';
+      overview = title;
+      overviewIcon = rows.isEmpty
+          ? Icons.groups_outlined
+          : mismatch
+          ? Icons.info_outline_rounded
+          : uncertain
+          ? Icons.help_outline_rounded
+          : Icons.check_circle_outline_rounded;
+      content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            rows.isEmpty
+                ? 'Open to all students permitted by the event registration policy.'
+                : 'Restrictions set by the administrator',
+            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+          ),
+          const SizedBox(height: 7),
+          for (var i = 0; i < rows.length; i++) ...[
+            rows[i],
+            if (i < rows.length - 1)
+              Divider(height: 1, color: scheme.outlineVariant),
+          ],
+          const SizedBox(height: 13),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  mismatch
+                      ? Icons.info_outline_rounded
+                      : uncertain
+                      ? Icons.help_outline_rounded
+                      : Icons.check_circle_outline_rounded,
+                  color: mismatch ? scheme.error : scheme.primary,
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                      if (mismatch) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Mismatch: ${failures.join(', ')}.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 5),
+
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        border: Border.all(color: scheme.outlineVariant),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  Icon(overviewIcon, color: scheme.primary, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          overview,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          _expanded
+                              ? 'Tap to hide participation requirements'
+                              : 'Tap to view participation requirements',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Icon(
+                    _expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded) ...[
+            const SizedBox(height: 12),
+            Divider(height: 1, color: scheme.outlineVariant),
+            const SizedBox(height: 10),
+            content,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _LiveParticipantCounter extends StatefulWidget {
   final Map<String, dynamic> event;
   const _LiveParticipantCounter({super.key, required this.event});
@@ -1974,6 +2440,59 @@ class _LiveParticipantCounterState extends State<_LiveParticipantCounter> {
     return int.tryParse(value.toString());
   }
 
+  // The event-list endpoint supplies registrations_count; some detail
+  // responses expose only the old, potentially stale participants column.
+  // Do not label that denormalized value as a live count.
+  Future<Map<String, dynamic>?> _findCountFromEventList(
+      Uri origin,
+      String token,
+      ) async {
+    final soughtRef = (widget.event['reference'] ?? '').toString().trim();
+    final soughtId = (widget.event['id'] ?? '').toString().trim();
+    var page = 1;
+    var lastPage = 1;
+    while (page <= lastPage && page <= 100) {
+      final uri = origin.replace(
+        path: '/api/events',
+        queryParameters: {'page': '$page'},
+        fragment: null,
+      );
+      final response = await http
+          .get(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) {
+        throw StateError(
+          'Unable to refresh event registration count (HTTP ${response.statusCode}).',
+        );
+      }
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map || decoded['data'] is! List) {
+        throw const FormatException('Invalid event list from Laravel.');
+      }
+      for (final raw in decoded['data'] as List) {
+        if (raw is! Map) continue;
+        final event = Map<String, dynamic>.from(raw);
+        final ref = '${event['reference'] ?? ''}'.trim();
+        final id = '${event['id'] ?? ''}'.trim();
+        if ((soughtRef.isNotEmpty && ref == soughtRef) ||
+            (soughtId.isNotEmpty && id == soughtId)) {
+          if (_count(event, 'registrations_count') != null) return event;
+          return null;
+        }
+      }
+      lastPage = int.tryParse('${decoded['last_page'] ?? 1}') ?? 1;
+      page++;
+    }
+    return null;
+  }
+
   Future<void> refresh() async {
     if (!mounted || _updating) return;
     setState(() => _updating = true);
@@ -1994,36 +2513,59 @@ class _LiveParticipantCounterState extends State<_LiveParticipantCounter> {
           .toString()
           .trim();
       if (identifier.isEmpty) throw StateError('Event reference unavailable.');
-      final uri = origin.replace(
+
+      Map<String, dynamic>? latest;
+      // Prefer fresh detail data when the detail response includes a count.
+      final detailUri = origin.replace(
         path: '/api/events/${Uri.encodeComponent(identifier)}',
         query: null,
         fragment: null,
       );
       final response = await http
           .get(
-            uri,
-            headers: {
-              'Accept': 'application/json',
-              'Authorization': 'Bearer $token',
-              'ngrok-skip-browser-warning': 'true',
-            },
-          )
+        detailUri,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      )
           .timeout(const Duration(seconds: 20));
-      if (response.statusCode != 200) {
-        throw StateError('Could not refresh (HTTP ${response.statusCode}).');
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map) throw const FormatException('Invalid event data.');
+        final raw = decoded['data'] is Map ? decoded['data'] : decoded;
+        if (raw is! Map) throw const FormatException('Invalid event data.');
+        latest = Map<String, dynamic>.from(raw);
+      } else if (response.statusCode != 404) {
+        throw StateError(
+          'Could not refresh event details (HTTP ${response.statusCode}).',
+        );
       }
-      final decoded = jsonDecode(response.body);
-      if (decoded is! Map) throw const FormatException('Invalid event data.');
-      final raw = decoded['data'] is Map ? decoded['data'] : decoded;
-      if (raw is! Map) throw const FormatException('Invalid event data.');
+      // The known Laravel list controller computes registrations_count.
+      // Fall back to it if show() omits that attribute.
+      if (latest == null || _count(latest, 'registrations_count') == null) {
+        final listEvent = await _findCountFromEventList(origin, token);
+        if (listEvent != null) {
+          latest = {...?latest, ...listEvent};
+        }
+      }
+      if (latest == null || _count(latest, 'registrations_count') == null) {
+        throw StateError(
+          'Laravel did not return a verified registration count.',
+        );
+      }
       if (!mounted) return;
       setState(() {
-        _latest = Map<String, dynamic>.from(raw);
+        _latest = latest;
         _error = null;
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Unable to refresh. Showing last known count.');
+      setState(
+            () => _error =
+        'Live count could not be verified. Check Laravel and try refreshing.',
+      );
     } finally {
       if (mounted) setState(() => _updating = false);
     }
@@ -2035,8 +2577,7 @@ class _LiveParticipantCounterState extends State<_LiveParticipantCounter> {
     final record = _latest ?? widget.event;
     // Use the backend's authoritative active-registration count when supplied.
     // The event endpoint may expose either of these keys.
-    final registered =
-        _count(record, 'registrations_count') ?? _count(record, 'participants');
+    final registered = _count(record, 'registrations_count');
     final capacity = _count(record, 'capacity');
     final remaining = registered != null && capacity != null && capacity > 0
         ? (capacity - registered).clamp(0, capacity).toInt()
@@ -2071,10 +2612,10 @@ class _LiveParticipantCounterState extends State<_LiveParticipantCounter> {
                 onPressed: _updating ? null : refresh,
                 icon: _updating
                     ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
                     : const Icon(Icons.refresh_rounded),
               ),
             ],
@@ -2106,7 +2647,7 @@ class _LiveParticipantCounterState extends State<_LiveParticipantCounter> {
           ],
           const SizedBox(height: 7),
           Text(
-            _error ?? 'Updated from campus records every 30 seconds.',
+            _error ?? 'Count refreshed every 30 seconds.',
             style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11),
           ),
         ],
@@ -2114,3 +2655,4 @@ class _LiveParticipantCounterState extends State<_LiveParticipantCounter> {
     );
   }
 }
+
