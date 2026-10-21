@@ -62,7 +62,7 @@ class _DashboardPageState extends State<DashboardPage>
         origin.host.isEmpty ||
         origin.userInfo.isNotEmpty ||
         (origin.path.isNotEmpty && origin.path != '/')) {
-      throw StateError('The secure Laravel API URL is not configured.');
+      throw StateError('The secure API URL is not configured.');
     }
     return origin.replace(
       path: path,
@@ -93,14 +93,14 @@ class _DashboardPageState extends State<DashboardPage>
         throw StateError('Your session has expired. Please sign in again.');
       }
       if (response.statusCode == 403) {
-        throw StateError('Laravel has denied access to this resource.');
+        throw StateError('Denied access to this resource.');
       }
       if (response.statusCode != 200) {
-        throw StateError('Laravel returned HTTP ${response.statusCode}.');
+        throw StateError('eventEase returned HTTP ${response.statusCode}.');
       }
       final decoded = jsonDecode(response.body);
       if (decoded is! Map || decoded['data'] is! List) {
-        throw const FormatException('Laravel returned unexpected pagination.');
+        throw const FormatException('eventEase returned unexpected pagination.');
       }
       for (final entry in decoded['data'] as List) {
         if (entry is! Map) {
@@ -120,9 +120,9 @@ class _DashboardPageState extends State<DashboardPage>
   String _requestError(Object error) {
     if (error is StateError) return error.message.toString();
     if (error is FormatException) {
-      return 'Laravel returned an unexpected data format.';
+      return 'eventEase returned an unexpected data format.';
     }
-    return 'Could not reach Laravel. Check the internet connection and try again.';
+    return 'Could not reach. Check the internet connection and try again.';
   }
 
   // Update the dashboard and unread badge independently so a slow notices
@@ -350,7 +350,7 @@ class _DashboardPageState extends State<DashboardPage>
     final color = _realApiMode ? const Color(0xFFAD6513) : _blue;
     return Semantics(
       label: _realApiMode
-          ? 'Live Laravel student dashboard data.'
+          ? 'Live student dashboard data.'
           : 'Preview mode. Dashboard values are local sample data.',
       child: Container(
         width: double.infinity,
@@ -376,11 +376,11 @@ class _DashboardPageState extends State<DashboardPage>
                   Text(
                     _realApiMode
                         ? (_loadingLive
-                              ? 'Loading Laravel records'
+                              ? 'Loading records'
                               : (_registrationError != null ||
                                     _eventError != null)
                               ? 'Some information could not load'
-                              : 'Connected to Laravel')
+                              : 'Connected!')
                         : 'Preview data',
                     style: TextStyle(
                       color: colors.onSurface,
@@ -391,8 +391,8 @@ class _DashboardPageState extends State<DashboardPage>
                   const SizedBox(height: 3),
                   Text(
                     _realApiMode
-                        ? 'Your registered-event statistics and campus event lists are loaded from the Laravel API. Pull down to refresh.'
-                        : "Event counts, attendance and cards are based on this device's local data, not verified Laravel records.",
+                        ? 'Your registered-event statistics and campus event lists are loaded from the API. Pull down to refresh.'
+                        : "Event counts, attendance and cards are based on this device's local data, not verified records.",
                     style: TextStyle(
                       color: colors.onSurfaceVariant,
                       height: 1.35,

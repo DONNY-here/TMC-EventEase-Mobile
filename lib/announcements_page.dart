@@ -59,7 +59,7 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
         origin.host.isEmpty ||
         origin.userInfo.isNotEmpty ||
         (origin.path.isNotEmpty && origin.path != '/')) {
-      throw StateError('The secure Laravel API URL is not configured.');
+      throw StateError('The secure API URL is not configured.');
     }
     return origin.replace(
       path: '/api/my/announcements',
@@ -71,7 +71,7 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
   static _EventEaseNotification _parseAnnouncement(Map<String, dynamic> row) {
     final reference = (row['reference'] ?? row['id'] ?? '').toString().trim();
     if (reference.isEmpty) {
-      throw const FormatException('A Laravel announcement has no reference.');
+      throw const FormatException('Announcement has no reference.');
     }
     final title = (row['title'] ?? '').toString().trim();
     final message = (row['message'] ?? '').toString().trim();
@@ -102,9 +102,9 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
   String _errorMessage(Object error) {
     if (error is StateError) return error.message.toString();
     if (error is FormatException) {
-      return 'Laravel returned an unexpected announcement response.';
+      return 'eventEase returned an unexpected announcement response.';
     }
-    return 'Cannot reach Laravel. Check the connection and try again.';
+    return 'Cannot reach. Check the connection and try again.';
   }
 
   Future<void> _loadLiveAnnouncements() async {
@@ -141,11 +141,11 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
           throw StateError('Your session expired. Sign in again.');
         }
         if (response.statusCode == 403) {
-          throw StateError('Laravel denied access to student announcements.');
+          throw StateError('Denied access to student announcements.');
         }
         if (response.statusCode == 404) {
           throw StateError(
-            'Student announcements route is missing on Laravel.',
+            'Student announcements route is missing.',
           );
         }
         if (response.statusCode != 200) {

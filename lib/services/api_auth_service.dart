@@ -135,7 +135,7 @@ class ApiAuthService {
       return session;
     } on FormatException {
       throw const ApiAuthException(
-        'Laravel returned an unexpected login response.',
+        'eventEase returned an unexpected login response.',
       );
     }
   }

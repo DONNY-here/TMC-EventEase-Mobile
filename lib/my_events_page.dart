@@ -107,12 +107,12 @@ class _MyEventsPageState extends State<MyEventsPage> {
 
       switch (_selectedFilter) {
         case 'Upcoming':
-        // A registered event scheduled for today or a future date.
+          // A registered event scheduled for today or a future date.
           return date != null && !date.isBefore(today);
         case 'Attended':
           return attendance == 'Present';
         case 'Completed':
-        // Completed here means the event date has passed, not checked in.
+          // Completed here means the event date has passed, not checked in.
           return date != null && date.isBefore(today);
         default:
           return true;
@@ -163,7 +163,7 @@ class _MyEventsPageState extends State<MyEventsPage> {
         title: const Text('Cancel registration?'),
         content: Text(
           'Your demo registration and QR pass for ${event.title} '
-              'will be removed.',
+          'will be removed.',
         ),
         actions: [
           TextButton(
@@ -188,7 +188,7 @@ class _MyEventsPageState extends State<MyEventsPage> {
     }
 
     final stillRegistered = registeredEvents.any(
-          (entry) => eventKey(entry) == key,
+      (entry) => eventKey(entry) == key,
     );
     if (!stillRegistered) return;
 
@@ -646,12 +646,12 @@ class _MyEventsPageState extends State<MyEventsPage> {
             child: FilledButton.icon(
               onPressed: hasPass
                   ? () async {
-                await Navigator.push(
-                  context,
-                  animatedRoute(StudentQrPassPage(event: event)),
-                );
-                if (mounted) setState(() {});
-              }
+                      await Navigator.push(
+                        context,
+                        animatedRoute(StudentQrPassPage(event: event)),
+                      );
+                      if (mounted) setState(() {});
+                    }
                   : null,
               icon: const Icon(Icons.qr_code_2_rounded),
               label: Text(hasPass ? 'View My QR Pass' : 'QR Pass Unavailable'),
@@ -670,12 +670,12 @@ class _MyEventsPageState extends State<MyEventsPage> {
             child: OutlinedButton.icon(
               onPressed: present
                   ? () async {
-                await Navigator.push(
-                  context,
-                  animatedRoute(EvaluationPage(event: event)),
-                );
-                if (mounted) setState(() {});
-              }
+                      await Navigator.push(
+                        context,
+                        animatedRoute(EvaluationPage(event: event)),
+                      );
+                      if (mounted) setState(() {});
+                    }
                   : null,
               icon: Icon(
                 present ? Icons.star_outline_rounded : Icons.lock_outline,
@@ -766,7 +766,7 @@ class _MyEventsPageState extends State<MyEventsPage> {
         case 'Attended':
           title = 'No attendance recorded yet';
           message =
-          'Once an authorized demo scan is recorded, it appears here.';
+              'Once an authorized demo scan is recorded, it appears here.';
           break;
         case 'Completed':
           title = 'No past events';
@@ -808,17 +808,17 @@ class _MyEventsPageState extends State<MyEventsPage> {
             child: events.isEmpty
                 ? _emptyState()
                 : ListView.separated(
-              key: ValueKey('my-events-$_selectedFilter'),
-              padding: const EdgeInsets.fromLTRB(16, 7, 16, 25),
-              itemCount: events.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 13),
-              itemBuilder: (context, index) => _eventCard(events[index]),
-            ),
+                    key: ValueKey('my-events-$_selectedFilter'),
+                    padding: const EdgeInsets.fromLTRB(16, 7, 16, 25),
+                    itemCount: events.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 13),
+                    itemBuilder: (context, index) => _eventCard(events[index]),
+                  ),
           ),
           Padding(
             padding: const EdgeInsets.only(bottom: 5),
             child: Text(
-              'Local demo records only • Not synced with Laravel',
+              'Local demo records only • Not sync',
               style: TextStyle(color: _subtle, fontSize: 10.5),
               textAlign: TextAlign.center,
             ),
@@ -887,10 +887,10 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
   }
 
   static String _str(
-      Map<String, dynamic> record,
-      String field, [
-        String fallback = '',
-      ]) {
+    Map<String, dynamic> record,
+    String field, [
+    String fallback = '',
+  ]) {
     final value = record[field];
     return value == null ? fallback : value.toString().trim();
   }
@@ -960,10 +960,10 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
         return matching
             .where(
               (item) =>
-          _eventDay(item) != null &&
-              !_isPast(item) &&
-              !_isCancelled(item),
-        )
+                  _eventDay(item) != null &&
+                  !_isPast(item) &&
+                  !_isCancelled(item),
+            )
             .toList();
       case 'Attended':
         return matching
@@ -982,7 +982,7 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
         return _records
             .where(
               (r) => _eventDay(r) != null && !_isPast(r) && !_isCancelled(r),
-        )
+            )
             .length;
       case 'Attended':
         return _records.where((r) => !_isCancelled(r) && _attended(r)).length;
@@ -1000,7 +1000,7 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
         base.host.isEmpty ||
         base.userInfo.isNotEmpty ||
         (base.path.isNotEmpty && base.path != '/')) {
-      throw StateError('The secure Laravel server URL is not configured.');
+      throw StateError('The secure server URL is not configured.');
     }
     return base.replace(path: path, queryParameters: query, fragment: null);
   }
@@ -1031,7 +1031,7 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
         return result['message'] as String;
       }
     } catch (_) {}
-    return 'Laravel returned HTTP ${response.statusCode}.';
+    return 'eventEase returned HTTP ${response.statusCode}.';
   }
 
   // EventController@index returns the canonical event.registration_fee.
@@ -1041,20 +1041,22 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
     var page = 1;
     var lastPage = 1;
     do {
-      final response = await http.get(
-        _endpoint('/api/events', query: {'page': '$page'}),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      ).timeout(const Duration(seconds: 20));
+      final response = await http
+          .get(
+            _endpoint('/api/events', query: {'page': '$page'}),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              'ngrok-skip-browser-warning': 'true',
+            },
+          )
+          .timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) {
         throw StateError('Could not fetch registration-fee metadata.');
       }
       final decoded = jsonDecode(response.body);
       if (decoded is! Map || decoded['data'] is! List) {
-        throw const FormatException('Unexpected Laravel event list.');
+        throw const FormatException('Unexpected event list.');
       }
       for (final entry in decoded['data'] as List) {
         if (entry is Map) events.add(Map<String, dynamic>.from(entry));
@@ -1085,14 +1087,16 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
 
   String _feeLabel(Map<String, dynamic> record) {
     final event = _matchedEvent(record);
-    if (event == null) return 'Fee not available from Laravel';
+    if (event == null) return 'Fee not available';
     final raw = event['registration_fee'];
-    if (raw == null) return 'Fee not specified by Laravel';
+    if (raw == null) return 'Fee not specified';
     final amount = num.tryParse(raw.toString());
     if (amount == null || !amount.isFinite || amount < 0) {
       return 'Fee not specified by Laravel';
     }
-    return amount == 0 ? 'Free registration' : 'Registration fee: ₱${amount.toStringAsFixed(2)}';
+    return amount == 0
+        ? 'Free registration'
+        : 'Registration fee: ₱${amount.toStringAsFixed(2)}';
   }
 
   Future<void> _load({bool more = false}) async {
@@ -1117,13 +1121,13 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
       );
       final response = await http
           .get(
-        uri,
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      )
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              'ngrok-skip-browser-warning': 'true',
+            },
+          )
           .timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) {
         throw StateError(_httpError(response));
@@ -1131,7 +1135,7 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
       final decoded = jsonDecode(response.body);
       if (decoded is! Map || decoded['data'] is! List) {
         throw const FormatException(
-          'Unexpected registration list from Laravel.',
+          'Unexpected registration list.',
         );
       }
       final rows = (decoded['data'] as List).map((item) {
@@ -1204,8 +1208,8 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
         title: const Text('Cancel registration?'),
         content: Text(
           'Cancel your registration for '
-              '"${_str(record, 'event_title', 'this event')}"? '
-              'Your event registration QR will stop being valid.',
+          '"${_str(record, 'event_title', 'this event')}"? '
+          'Your event registration QR will stop being valid.',
         ),
         actions: [
           TextButton(
@@ -1224,13 +1228,13 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
       final token = await _token();
       final response = await http
           .delete(
-        _endpoint('/api/registrations/$id/cancel'),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      )
+            _endpoint('/api/registrations/$id/cancel'),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              'ngrok-skip-browser-warning': 'true',
+            },
+          )
           .timeout(const Duration(seconds: 20));
       if (response.statusCode != 200 && response.statusCode != 204) {
         throw StateError(_httpError(response));
@@ -1238,7 +1242,7 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Laravel confirmed your registration was cancelled.'),
+          content: Text('Your registration was cancelled.'),
         ),
       );
       await _load();
@@ -1299,10 +1303,10 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
     final venue = _str(record, 'venue', 'Venue not provided');
     final canCancel =
         !cancelled &&
-            !isPast &&
-            !isLateOrPresent &&
-            _str(record, 'event_status').toLowerCase() != 'completed' &&
-            _str(record, 'event_status').toLowerCase() != 'cancelled';
+        !isPast &&
+        !isLateOrPresent &&
+        _str(record, 'event_status').toLowerCase() != 'completed' &&
+        _str(record, 'event_status').toLowerCase() != 'cancelled';
     return Container(
       margin: const EdgeInsets.only(bottom: 13),
       padding: const EdgeInsets.all(16),
@@ -1423,12 +1427,12 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
               onPressed: cancelled || qr.isEmpty
                   ? null
                   : () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      _LaravelRegistrationQrPage(registration: record),
-                ),
-              ),
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            _LaravelRegistrationQrPage(registration: record),
+                      ),
+                    ),
               icon: const Icon(Icons.qr_code_2_rounded),
               label: Text(
                 cancelled
@@ -1702,57 +1706,57 @@ class _LaravelMyPassesViewState extends State<_LaravelMyPassesView>
                 ),
               )
             else ...[
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-                    child: Text(_error!, style: TextStyle(color: scheme.error)),
-                  ),
-                if (filtered.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 18,
-                      horizontal: 16,
-                    ),
-                    child: EventEaseStatusPanel(
-                      icon: Icons.confirmation_number_outlined,
-                      title: _records.isEmpty
-                          ? 'No passes yet'
-                          : 'No matching passes',
-                      message: _records.isEmpty
-                          ? 'Events you register for will appear here.'
-                          : 'Try a different filter to view your registrations.',
-                    ),
-                  ),
+              if (_error != null)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 20),
-                  child: Column(
-                    children: [
-                      ...filtered.map(_card),
-                      if (_page < _lastPage)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 5),
-                          child: OutlinedButton.icon(
-                            onPressed: _loadingMore
-                                ? null
-                                : () => _load(more: true),
-                            icon: _loadingMore
-                                ? const SizedBox(
-                              width: 17,
-                              height: 17,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
-                            )
-                                : const Icon(Icons.expand_more_rounded),
-                            label: Text(
-                              _loadingMore ? 'Loading...' : 'Load more',
-                            ),
-                          ),
-                        ),
-                    ],
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                  child: Text(_error!, style: TextStyle(color: scheme.error)),
+                ),
+              if (filtered.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 18,
+                    horizontal: 16,
+                  ),
+                  child: EventEaseStatusPanel(
+                    icon: Icons.confirmation_number_outlined,
+                    title: _records.isEmpty
+                        ? 'No passes yet'
+                        : 'No matching passes',
+                    message: _records.isEmpty
+                        ? 'Events you register for will appear here.'
+                        : 'Try a different filter to view your registrations.',
                   ),
                 ),
-              ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 20),
+                child: Column(
+                  children: [
+                    ...filtered.map(_card),
+                    if (_page < _lastPage)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 5),
+                        child: OutlinedButton.icon(
+                          onPressed: _loadingMore
+                              ? null
+                              : () => _load(more: true),
+                          icon: _loadingMore
+                              ? const SizedBox(
+                                  width: 17,
+                                  height: 17,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.expand_more_rounded),
+                          label: Text(
+                            _loadingMore ? 'Loading...' : 'Load more',
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1961,22 +1965,22 @@ class _LaravelRegistrationQrPage extends StatelessWidget {
                           ),
                           child: token.isEmpty
                               ? const SizedBox(
-                            width: 220,
-                            height: 220,
-                            child: Center(
-                              child: Text(
-                                'QR pass unavailable',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: _navy),
-                              ),
-                            ),
-                          )
+                                  width: 220,
+                                  height: 220,
+                                  child: Center(
+                                    child: Text(
+                                      'QR pass unavailable',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: _navy),
+                                    ),
+                                  ),
+                                )
                               : QrImageView(
-                            data: token,
-                            version: QrVersions.auto,
-                            size: 220,
-                            backgroundColor: Colors.white,
-                          ),
+                                  data: token,
+                                  version: QrVersions.auto,
+                                  size: 220,
+                                  backgroundColor: Colors.white,
+                                ),
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -2047,8 +2051,8 @@ class _LaravelRegistrationQrPage extends StatelessWidget {
                         Expanded(
                           child: Text(
                             'This QR is your registration credential, not proof '
-                                'of attendance. Attendance is recorded only after '
-                                'successful verification by an authorized scanner.',
+                            'of attendance. Attendance is recorded only after '
+                            'successful verification by an authorized scanner.',
                             style: TextStyle(
                               color: scheme.onSurfaceVariant,
                               fontSize: 12,
@@ -2118,13 +2122,13 @@ class _LaravelStudentAttendanceQrPageState
       final token = await _LaravelMyPassesViewState._token();
       final response = await http
           .get(
-        _LaravelMyPassesViewState._endpoint('/api/my/attendance-qr'),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      )
+            _LaravelMyPassesViewState._endpoint('/api/my/attendance-qr'),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              'ngrok-skip-browser-warning': 'true',
+            },
+          )
           .timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) {
         throw StateError(_LaravelMyPassesViewState._httpError(response));
@@ -2142,7 +2146,7 @@ class _LaravelStudentAttendanceQrPageState
     } catch (error) {
       if (!mounted) return;
       setState(
-            () => _error = error is StateError
+        () => _error = error is StateError
             ? error.message.toString()
             : 'Unable to load student attendance QR.',
       );
@@ -2199,8 +2203,8 @@ class _LaravelStudentAttendanceQrPageState
               const SizedBox(height: 20),
               Text(
                 'Issued by Laravel for this student. Present only to '
-                    'authorized TMC personnel. QR display does not record '
-                    'attendance; the web scanner must verify it.',
+                'authorized TMC personnel. QR display does not record '
+                'attendance; the web scanner must verify it.',
                 style: TextStyle(color: scheme.onSurfaceVariant, height: 1.5),
                 textAlign: TextAlign.center,
               ),
@@ -2250,10 +2254,10 @@ class _LaravelStudentAttendancePageState
   }
 
   String _value(
-      Map<String, dynamic> record,
-      String field, [
-        String fallback = '',
-      ]) {
+    Map<String, dynamic> record,
+    String field, [
+    String fallback = '',
+  ]) {
     final value = record[field];
     return value == null ? fallback : value.toString().trim();
   }
@@ -2292,12 +2296,12 @@ class _LaravelStudentAttendancePageState
     do {
       final response = await http
           .get(
-        _LaravelMyPassesViewState._endpoint(
-          '/api/registrations/my',
-          query: {'page': '$page'},
-        ),
-        headers: _headers(token),
-      )
+            _LaravelMyPassesViewState._endpoint(
+              '/api/registrations/my',
+              query: {'page': '$page'},
+            ),
+            headers: _headers(token),
+          )
           .timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) {
         throw StateError(_errorFor(response, 'registration history'));
@@ -2316,7 +2320,7 @@ class _LaravelStudentAttendancePageState
       if (lastPage > 50) {
         throw StateError(
           'Registration history is too large for this view. '
-              'Contact the developer about attendance pagination.',
+          'Contact the developer about attendance pagination.',
         );
       }
       page++;
@@ -2327,9 +2331,9 @@ class _LaravelStudentAttendancePageState
   Future<List<Map<String, dynamic>>> _fetchObligations(String token) async {
     final response = await http
         .get(
-      _LaravelMyPassesViewState._endpoint('/api/my/attendance'),
-      headers: _headers(token),
-    )
+          _LaravelMyPassesViewState._endpoint('/api/my/attendance'),
+          headers: _headers(token),
+        )
         .timeout(const Duration(seconds: 20));
     if (response.statusCode != 200) {
       throw StateError(_errorFor(response, 'compulsory attendance'));
@@ -2449,11 +2453,11 @@ class _LaravelStudentAttendancePageState
   }
 
   Widget _summaryStat(
-      String label,
-      String value,
-      IconData icon,
-      Color foreground,
-      ) {
+    String label,
+    String value,
+    IconData icon,
+    Color foreground,
+  ) {
     final c = Theme.of(context).colorScheme;
     return Expanded(
       child: Container(
@@ -2593,9 +2597,9 @@ class _LaravelStudentAttendancePageState
     final rawSessions = record['sessions'];
     final sessions = rawSessions is List
         ? rawSessions
-        .whereType<Map>()
-        .map((s) => Map<String, dynamic>.from(s))
-        .toList()
+              .whereType<Map>()
+              .map((s) => Map<String, dynamic>.from(s))
+              .toList()
         : <Map<String, dynamic>>[];
     return _panel(
       child: Column(
@@ -2683,9 +2687,9 @@ class _LaravelStudentAttendancePageState
                     Expanded(
                       child: Text(
                         'Laravel currently returns overall attendance for this '
-                            'registration, but not session-level Time In, Time Out, '
-                            'or Late details. Those will appear after the student API '
-                            'exposes verified session records.',
+                        'registration, but not session-level Time In, Time Out, '
+                        'or Late details. Those will appear after the student API '
+                        'exposes verified session records.',
                         style: TextStyle(
                           color: colors.onSurfaceVariant,
                           fontSize: 12,
@@ -2755,9 +2759,9 @@ class _LaravelStudentAttendancePageState
     final rawSessions = record['attendance'];
     final sessions = rawSessions is List
         ? rawSessions
-        .whereType<Map>()
-        .map((s) => Map<String, dynamic>.from(s))
-        .toList()
+              .whereType<Map>()
+              .map((s) => Map<String, dynamic>.from(s))
+              .toList()
         : <Map<String, dynamic>>[];
     return _panel(
       child: Column(
@@ -2782,7 +2786,7 @@ class _LaravelStudentAttendancePageState
           const SizedBox(height: 10),
           Text(
             '${_date(_value(record, 'event_date'))} · '
-                '${_value(record, 'venue', 'Venue not provided')}',
+            '${_value(record, 'venue', 'Venue not provided')}',
             style: TextStyle(color: colors.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
@@ -2885,10 +2889,10 @@ class _LaravelStudentAttendancePageState
             : 'No compulsory attendance records',
         message: registrationTab
             ? 'Registered events and their attendance will appear here '
-            'after Laravel confirms your registration.'
+                  'after Laravel confirms your registration.'
             : 'Laravel has not published compulsory-attendance '
-            'obligations for this account. This does not mean you '
-            'were marked absent.',
+                  'obligations for this account. This does not mean you '
+                  'were marked absent.',
       );
     }
     return Column(
@@ -2898,7 +2902,7 @@ class _LaravelStudentAttendancePageState
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
               'These records are created when the college finalizes '
-                  'the compulsory-attendance roster.',
+              'the compulsory-attendance roster.',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 12,
@@ -2928,91 +2932,90 @@ class _LaravelStudentAttendancePageState
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-        onRefresh: _refresh,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(19),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [_navy, _blue]),
-                borderRadius: BorderRadius.circular(23),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              onRefresh: _refresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
                 children: [
-                  const Icon(
-                    Icons.verified_user_outlined,
-                    color: _gold,
-                    size: 30,
-                  ),
-                  const SizedBox(height: 9),
-                  const Text(
-                    'Official attendance records',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 21,
-                      fontWeight: FontWeight.w900,
+                  Container(
+                    padding: const EdgeInsets.all(19),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [_navy, _blue]),
+                      borderRadius: BorderRadius.circular(23),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.verified_user_outlined,
+                          color: _gold,
+                          size: 30,
+                        ),
+                        const SizedBox(height: 9),
+                        const Text(
+                          'Official attendance records',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        const Text(
+                          'Live records from Laravel. Only authorized '
+                          'scanners can record Time In and Time Out.',
+                          style: TextStyle(color: Colors.white70, height: 1.4),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 7),
-                  const Text(
-                    'Live records from Laravel. Only authorized '
-                        'scanners can record Time In and Time Out.',
-                    style: TextStyle(color: Colors.white70, height: 1.4),
+                  const SizedBox(height: 15),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        selected: _selectedTab == 'Registered events',
+                        label: Text(
+                          'Registered events (${_registrations.length})',
+                        ),
+                        onSelected: (_) =>
+                            setState(() => _selectedTab = 'Registered events'),
+                      ),
+                      ChoiceChip(
+                        selected: _selectedTab == 'Required attendance',
+                        label: Text(
+                          'Required attendance (${_obligations.length})',
+                        ),
+                        onSelected: (_) => setState(
+                          () => _selectedTab = 'Required attendance',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (_authError == null &&
+                      _registrationError == null &&
+                      _selectedTab == 'Registered events' &&
+                      _registrations.isNotEmpty) ...[
+                    _registrationSummary(),
+                    const SizedBox(height: 16),
+                  ],
+                  _body(),
+                  const SizedBox(height: 9),
+                  Text(
+                    'Pull down or tap refresh after an authorized QR scan. '
+                    'Displaying a QR code by itself does not record attendance.',
+                    style: TextStyle(
+                      color: colors.onSurfaceVariant,
+                      fontSize: 11.5,
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 15),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ChoiceChip(
-                  selected: _selectedTab == 'Registered events',
-                  label: Text(
-                    'Registered events (${_registrations.length})',
-                  ),
-                  onSelected: (_) =>
-                      setState(() => _selectedTab = 'Registered events'),
-                ),
-                ChoiceChip(
-                  selected: _selectedTab == 'Required attendance',
-                  label: Text(
-                    'Required attendance (${_obligations.length})',
-                  ),
-                  onSelected: (_) => setState(
-                        () => _selectedTab = 'Required attendance',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (_authError == null &&
-                _registrationError == null &&
-                _selectedTab == 'Registered events' &&
-                _registrations.isNotEmpty) ...[
-              _registrationSummary(),
-              const SizedBox(height: 16),
-            ],
-            _body(),
-            const SizedBox(height: 9),
-            Text(
-              'Pull down or tap refresh after an authorized QR scan. '
-                  'Displaying a QR code by itself does not record attendance.',
-              style: TextStyle(
-                color: colors.onSurfaceVariant,
-                fontSize: 11.5,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
-

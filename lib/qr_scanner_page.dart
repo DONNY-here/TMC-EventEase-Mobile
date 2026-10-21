@@ -27,6 +27,8 @@ class _QRCodePageState extends State<QRCodePage> {
   bool isVerifyingScan = false;
   bool _torchEnabled = false;
   bool _showAllHistory = false;
+  bool _setupExpanded = true;
+  bool _liveApiConnected = false;
 
   String? lastMessage;
   String? lastResultStatus;
@@ -42,7 +44,6 @@ class _QRCodePageState extends State<QRCodePage> {
   int? _liveSessionId;
   String _liveDirection = 'in';
   List<Map<String, dynamic>> _liveHistory = [];
-  Map<String, dynamic>? _liveSummary;
   bool _liveLoadingEvents = false;
   bool _liveLoadingSessions = false;
   bool _liveLoadingHistory = false;
@@ -241,7 +242,7 @@ class _QRCodePageState extends State<QRCodePage> {
       // Some gateway errors do not return JSON.
     }
     if (response.statusCode == 404) {
-      return 'This event, session, or QR credential was not found in Laravel.';
+      return 'This event, session, or QR credential was not found.';
     }
     return 'Laravel could not complete this request (HTTP ${response.statusCode}).';
   }
@@ -275,13 +276,16 @@ class _QRCodePageState extends State<QRCodePage> {
     } else {
       throw StateError('Unsupported scanner request method.');
     }
+    if (mounted && !_liveApiConnected) {
+      setState(() => _liveApiConnected = true);
+    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw StateError(_liveHttpError(response));
     }
     try {
       return jsonDecode(response.body);
     } on FormatException {
-      throw const FormatException('Laravel returned invalid JSON.');
+      throw const FormatException('eventEase returned invalid JSON.');
     }
   }
 
@@ -292,7 +296,7 @@ class _QRCodePageState extends State<QRCodePage> {
     if (error is FormatException) {
       return error.message;
     }
-    return 'Unable to contact Laravel. Check ngrok and your internet connection.';
+    return 'Unable to contact. Check your internet connection.';
   }
 
   Future<void> _loadLiveEvents() async {
@@ -327,7 +331,6 @@ class _QRCodePageState extends State<QRCodePage> {
         await _selectLiveEvent(match.first);
       }
       _loadLiveHistory();
-      _loadLiveSummary();
     } catch (error) {
       if (!mounted) {
         return;
@@ -335,6 +338,7 @@ class _QRCodePageState extends State<QRCodePage> {
       setState(() {
         _liveLoadingEvents = false;
         _liveError = _friendlyLiveError(error);
+        _liveApiConnected = false;
       });
     }
   }
@@ -365,7 +369,7 @@ class _QRCodePageState extends State<QRCodePage> {
         _liveLoadingSessions = false;
         _liveSessionError =
             'This event has no check-in token. An administrator '
-            'must generate its check-in poster in Laravel first.';
+            'must generate its check-in poster first.';
       });
       return;
     }
@@ -386,6 +390,7 @@ class _QRCodePageState extends State<QRCodePage> {
         _liveLoadingSessions = false;
       });
       if (_canLiveScan) {
+        setState(() => _setupExpanded = false);
         await _scanAgain();
       }
     } catch (error) {
@@ -395,6 +400,7 @@ class _QRCodePageState extends State<QRCodePage> {
       setState(() {
         _liveLoadingSessions = false;
         _liveSessionError = _friendlyLiveError(error);
+        _liveApiConnected = false;
       });
     }
   }
@@ -447,26 +453,6 @@ class _QRCodePageState extends State<QRCodePage> {
         _liveLoadingHistory = false;
         _liveHistory = [];
       });
-    }
-  }
-
-  Future<void> _loadLiveSummary() async {
-    if (!ApiConfig.useRealApi ||
-        !canScanAttendance ||
-        savedUserRole.trim().toLowerCase() == 'admin') {
-      return;
-    }
-    try {
-      final result = _liveMap(
-        await _liveRequest('GET', '/api/scanner/summary'),
-      );
-      if (mounted) {
-        setState(() => _liveSummary = result);
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _liveSummary = null);
-      }
     }
   }
 
@@ -559,7 +545,6 @@ class _QRCodePageState extends State<QRCodePage> {
       );
       if (successful) {
         _loadLiveHistory();
-        _loadLiveSummary();
       }
     } catch (error) {
       if (!mounted) {
@@ -901,155 +886,195 @@ class _QRCodePageState extends State<QRCodePage> {
     ],
   );
 
-  Widget _metric(String number, String label, IconData icon) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: const Color(0xFFFFD46C)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  number,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 19,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFD2E0F4),
-                    fontSize: 10.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-
+  // Compact session summary: keep the event setup and camera in view.
   Widget _hero() {
-    final totalPresent = scanHistory.where((r) => r.status == 'Present').length;
-    final totalDuplicates = scanHistory
-        .where((r) => r.status == 'Duplicate')
-        .length;
-
+    final ready = ApiConfig.useRealApi ? _canLiveScan : selectedEvent != null;
+    final selectedTitle = ApiConfig.useRealApi
+        ? _liveText(_liveSelectedEvent?['title'], 'No event selected')
+        : (selectedEvent?.title ?? 'No event selected');
+    final statusText = isVerifyingScan
+        ? 'Verifying attendance…'
+        : lastMessage != null
+        ? 'Review the last scan'
+        : !ready
+        ? 'Choose an event to get started'
+        : processingScan
+        ? 'Scanner paused'
+        : 'Scanning enabled • Point camera at QR';
+    final statusColor = isVerifyingScan
+        ? const Color(0xFFFFD46C)
+        : (!ready || processingScan)
+        ? const Color(0xFFFFD46C)
+        : const Color(0xFF75E3B4);
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(17, 17, 17, 18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF092B58), Color(0xFF13508B), Color(0xFF1A618F)],
+          colors: [Color(0xFF102C50), Color(0xFF164575)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 43,
-                height: 43,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.13),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.qr_code_scanner_rounded,
-                  color: Color(0xFFFFD46C),
-                  size: 25,
-                ),
+              const Icon(
+                Icons.qr_code_scanner_rounded,
+                color: Color(0xFFFFD46C),
+                size: 25,
               ),
-              const SizedBox(width: 11),
+              const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  'EVENTEASE  /  SCAN STATION',
+                  'Attendance scanner',
                   style: TextStyle(
-                    color: Color(0xFFE4F0FC),
-                    fontSize: 11,
-                    letterSpacing: 1.0,
+                    color: Colors.white,
+                    fontSize: 20,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFD46C),
-                  borderRadius: BorderRadius.circular(20),
+                  color: Colors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(18),
                 ),
                 child: Text(
-                  ApiConfig.useRealApi ? 'LIVE LARAVEL' : 'DEMO MODE',
+                  ApiConfig.useRealApi
+                      ? (_liveApiConnected
+                            ? 'Server reachable'
+                            : 'Server not verified')
+                      : 'Demo mode',
                   style: const TextStyle(
-                    color: Color(0xFF102A4C),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 9,
-                    letterSpacing: 0.7,
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          const Text(
-            'Attendance scanner',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.6,
-            ),
-          ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 12),
           Text(
-            'Ready for ${scannerDisplayName.trim().isEmpty ? 'scanner testing' : scannerDisplayName}',
+            selectedTitle,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Color(0xFFCFDFF1),
-              fontSize: 12.5,
-              height: 1.4,
+              color: Color(0xFFE0EAF5),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           Row(
             children: [
-              _metric(
-                ApiConfig.useRealApi
-                    ? '${_liveSummary?['scans_today'] ?? '—'}'
-                    : '$totalPresent',
-                ApiConfig.useRealApi ? 'Scans today' : 'Demo check-ins',
-                Icons.check_circle_outline,
+              Icon(
+                ready && !processingScan
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.info_outline_rounded,
+                color: statusColor,
+                size: 18,
               ),
-              const SizedBox(width: 10),
-              _metric(
-                ApiConfig.useRealApi
-                    ? '${_liveSummary?['events_today'] ?? '—'}'
-                    : '$totalDuplicates',
-                ApiConfig.useRealApi ? 'Events today' : 'Duplicate attempts',
-                Icons.shield_outlined,
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  statusText,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  // A single compact setup row keeps the camera above the fold.
+  // Event/session controls remain available when the operator taps Change.
+  Widget _setupCard() {
+    final eventTitle = ApiConfig.useRealApi
+        ? _liveText(_liveSelectedEvent?['title'], 'Select an event')
+        : (selectedEvent?.title ?? 'Select an event');
+    final selectedSession = _activeLiveSession;
+    final sessionTitle = ApiConfig.useRealApi
+        ? (selectedSession == null
+              ? 'No open session selected'
+              : _liveText(selectedSession['label'], 'Attendance session'))
+        : 'Demo attendance';
+    final configured = ApiConfig.useRealApi
+        ? _canLiveScan
+        : selectedEvent != null;
+
+    return Container(
+      decoration: _panelDecoration(radius: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(15, 11, 9, 11),
+            child: Row(
+              children: [
+                Icon(
+                  configured ? Icons.check_circle_rounded : Icons.tune_rounded,
+                  color: configured ? const Color(0xFF16875A) : _muted,
+                  size: 21,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        eventTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _ink,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        ApiConfig.useRealApi
+                            ? '$sessionTitle • ${_liveDirection == 'in' ? 'Time In' : 'Time Out'}'
+                            : sessionTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: _muted, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: isVerifyingScan
+                      ? null
+                      : () {
+                          setState(() => _setupExpanded = !_setupExpanded);
+                        },
+                  icon: Icon(
+                    _setupExpanded
+                        ? Icons.expand_less_rounded
+                        : Icons.tune_rounded,
+                    size: 18,
+                  ),
+                  label: Text(_setupExpanded ? 'Close' : 'Change'),
+                ),
+              ],
+            ),
+          ),
+          if (_setupExpanded) ...[
+            Divider(height: 1, color: _border),
+            Padding(padding: const EdgeInsets.all(10), child: _eventPicker()),
+          ],
         ],
       ),
     );
@@ -1063,7 +1088,7 @@ class _QRCodePageState extends State<QRCodePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _sectionHeader('01', 'Choose an event', hint: 'Required'),
+              _sectionHeader('01', 'Select event', hint: 'First step'),
               const SizedBox(height: 6),
               Text(
                 'Select the event before scanning a student pass.',
@@ -1148,7 +1173,11 @@ class _QRCodePageState extends State<QRCodePage> {
           Row(
             children: [
               Expanded(
-                child: _sectionHeader('01', 'Assigned event', hint: 'Laravel'),
+                child: _sectionHeader(
+                  '01',
+                  'Select assigned event',
+                  hint: 'First step',
+                ),
               ),
               IconButton(
                 tooltip: 'Refresh assigned events',
@@ -1161,7 +1190,7 @@ class _QRCodePageState extends State<QRCodePage> {
           ),
           const SizedBox(height: 7),
           Text(
-            'Only approved events assigned by Laravel can be scanned.',
+            'Choose the event you are checking attendance for.',
             style: TextStyle(color: _muted, fontSize: 12.5),
           ),
           if (_liveLoadingEvents)
@@ -1242,7 +1271,11 @@ class _QRCodePageState extends State<QRCodePage> {
               ),
             if (!_liveLoadingSessions && _liveSessionError == null) ...[
               const SizedBox(height: 16),
-              _sectionHeader('02', 'Attendance session', hint: 'Required'),
+              _sectionHeader(
+                '02',
+                'Select attendance session',
+                hint: 'Required',
+              ),
               const SizedBox(height: 9),
               if (_liveSessions.isEmpty)
                 Text(
@@ -1279,7 +1312,10 @@ class _QRCodePageState extends State<QRCodePage> {
                       ? null
                       : (value) {
                           setState(() => _liveSessionId = value);
-                          if (_canLiveScan) _scanAgain();
+                          if (_canLiveScan) {
+                            setState(() => _setupExpanded = false);
+                            _scanAgain();
+                          }
                         },
                 ),
               if (_liveSessions.isNotEmpty && _liveSessionId == null)
@@ -1291,7 +1327,7 @@ class _QRCodePageState extends State<QRCodePage> {
                   ),
                 ),
               const SizedBox(height: 16),
-              _sectionHeader('03', 'Attendance action', hint: 'Choose one'),
+              _sectionHeader('03', 'Record attendance as', hint: 'Choose one'),
               const SizedBox(height: 9),
               Wrap(
                 spacing: 10,
@@ -1338,18 +1374,54 @@ class _QRCodePageState extends State<QRCodePage> {
         ),
       );
 
+  Future<void> _pauseScanner() async {
+    if (isVerifyingScan) return;
+    // A deliberate pause is not an attendance result.
+    setState(() => processingScan = true);
+    try {
+      await scannerController.stop();
+    } catch (_) {
+      // Stopping an already stopped camera is harmless.
+    }
+  }
+
+  Widget _scannerAction() {
+    final ready = ApiConfig.useRealApi ? _canLiveScan : selectedEvent != null;
+    if (!ready || isVerifyingScan || lastMessage != null) {
+      return const SizedBox.shrink();
+    }
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: processingScan ? _scanAgain : _pauseScanner,
+        icon: Icon(
+          processingScan ? Icons.play_arrow_rounded : Icons.pause_rounded,
+        ),
+        label: Text(processingScan ? 'Start camera' : 'Pause camera'),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          foregroundColor: _ink,
+          side: BorderSide(color: _border),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(13),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _cameraPanel() => Container(
     decoration: _panelDecoration(),
     padding: const EdgeInsets.all(15),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader('02', 'Scan student pass'),
+        _sectionHeader('04', 'Scan student QR pass'),
         const SizedBox(height: 13),
         ClipRRect(
           borderRadius: BorderRadius.circular(21),
           child: SizedBox(
-            height: 340,
+            height: 300,
             width: double.infinity,
             child: Stack(
               fit: StackFit.expand,
@@ -1409,6 +1481,8 @@ class _QRCodePageState extends State<QRCodePage> {
                             ? 'SELECT EVENT AND OPEN SESSION'
                             : lastMessage != null
                             ? 'SCANNER PAUSED'
+                            : processingScan
+                            ? 'CAMERA PAUSED'
                             : 'ALIGN QR INSIDE THE FRAME',
                         style: const TextStyle(
                           color: Colors.white,
@@ -1424,7 +1498,8 @@ class _QRCodePageState extends State<QRCodePage> {
                         ? !_canLiveScan
                         : selectedEvent == null) ||
                     lastMessage != null ||
-                    isVerifyingScan)
+                    isVerifyingScan ||
+                    processingScan)
                   Positioned.fill(
                     child: IgnorePointer(
                       child: ColoredBox(
@@ -1461,11 +1536,15 @@ class _QRCodePageState extends State<QRCodePage> {
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
-                                      lastMessage == null
-                                          ? (ApiConfig.useRealApi
-                                                ? 'Select an event and open session above'
-                                                : 'Choose an event above')
-                                          : 'Review the result below',
+                                      lastMessage != null
+                                          ? 'Review the scan result above'
+                                          : (ApiConfig.useRealApi
+                                                ? (_canLiveScan
+                                                      ? 'Camera paused'
+                                                      : 'Select an open session above')
+                                                : (selectedEvent == null
+                                                      ? 'Choose an event above'
+                                                      : 'Camera paused')),
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
                                         color: Colors.white,
@@ -1530,7 +1609,9 @@ class _QRCodePageState extends State<QRCodePage> {
                           ? 'Select an assigned event and OPEN session before scanning.'
                           : 'Camera is ready. Select an event to enable verification.')
                     : lastMessage != null
-                    ? 'Scanning paused. Use the button below to continue.'
+                    ? 'Scanning paused. Review the result above.'
+                    : processingScan
+                    ? 'Camera paused. Tap Start camera to resume.'
                     : (ApiConfig.useRealApi
                           ? 'Scanning ${_liveText(_liveSelectedEvent?['title'])} • '
                                 '${_liveDirection == 'in' ? 'Time In' : 'Time Out'}.'
@@ -1540,6 +1621,8 @@ class _QRCodePageState extends State<QRCodePage> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        _scannerAction(),
       ],
     ),
   );
@@ -1580,8 +1663,8 @@ class _QRCodePageState extends State<QRCodePage> {
                   children: [
                     _eyebrow(
                       ApiConfig.useRealApi
-                          ? 'Laravel verification result'
-                          : 'Demo verification result',
+                          ? 'Attendance result'
+                          : 'Demo attendance result',
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -1650,7 +1733,7 @@ class _QRCodePageState extends State<QRCodePage> {
               icon: const Icon(Icons.qr_code_scanner_rounded),
               label: Text(
                 lastResultStatus == 'connection_error'
-                    ? 'Resume scanner after checking history'
+                    ? 'I checked history • Resume scanner'
                     : isSuccess || lastResultStatus == 'duplicate'
                     ? 'Scan another QR'
                     : 'Try scanning again',
@@ -1687,7 +1770,7 @@ class _QRCodePageState extends State<QRCodePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionHeader(
-            '03',
+            '05',
             'Recent scans',
             hint: '${scanHistory.length} total',
           ),
@@ -1755,8 +1838,8 @@ class _QRCodePageState extends State<QRCodePage> {
             children: [
               Expanded(
                 child: _sectionHeader(
-                  '04',
-                  'Recent server scans',
+                  '05',
+                  'Recent attendance scans',
                   hint: '${_liveHistory.length} loaded',
                 ),
               ),
@@ -1783,7 +1866,7 @@ class _QRCodePageState extends State<QRCodePage> {
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Center(
                 child: Text(
-                  'No server-recorded scans for this selection.',
+                  'No attendance scans recorded for this event yet.',
                   style: TextStyle(color: _muted),
                 ),
               ),
@@ -1932,10 +2015,10 @@ class _QRCodePageState extends State<QRCodePage> {
         Expanded(
           child: Text(
             ApiConfig.useRealApi
-                ? 'LIVE LARAVEL MODE • The server checks scanner assignment, '
+                ? 'The server checks scanner permissions, '
                       'event registration, session windows, and duplicate scans. '
-                      'Only a successful server response counts as attendance.'
-                : 'LOCAL DEMONSTRATION ONLY  •  QR checks and attendance '
+                      'Attendance is recorded only after server confirmation.'
+                : 'Demo only • QR checks and attendance '
                       'history are stored in the app session, not in Laravel. '
                       'Official verification requires server-side authorization.',
             style: TextStyle(color: _muted, fontSize: 11.5, height: 1.5),
@@ -1999,14 +2082,14 @@ class _QRCodePageState extends State<QRCodePage> {
               children: [
                 _hero(),
                 const SizedBox(height: 17),
-                _eventPicker(),
-                const SizedBox(height: 17),
-                _cameraPanel(),
+                _setupCard(),
                 if (lastMessage != null) ...[
-                  const SizedBox(height: 17),
+                  const SizedBox(height: 14),
                   _resultPanel(),
                 ],
-                const SizedBox(height: 17),
+                const SizedBox(height: 14),
+                _cameraPanel(),
+                const SizedBox(height: 14),
                 _historyPanel(),
                 const SizedBox(height: 17),
                 _notice(),

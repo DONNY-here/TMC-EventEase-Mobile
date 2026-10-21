@@ -89,13 +89,13 @@ class _EventsPageState extends State<EventsPage> {
 
   List<String> get _departments {
     final values =
-    eventList
-        .where((e) => e.scope == 'Department-Specific')
-        .map((e) => e.department.trim())
-        .where((v) => v.isNotEmpty && v != 'All Departments')
-        .toSet()
-        .toList()
-      ..sort();
+        eventList
+            .where((e) => e.scope == 'Department-Specific')
+            .map((e) => e.department.trim())
+            .where((v) => v.isNotEmpty && v != 'All Departments')
+            .toSet()
+            .toList()
+          ..sort();
     return ['All Departments', ...values];
   }
 
@@ -106,9 +106,9 @@ class _EventsPageState extends State<EventsPage> {
     final events = eventList.where((event) {
       final matchesText =
           query.isEmpty ||
-              '${event.title} ${event.venue} ${event.description} ${event.department}'
-                  .toLowerCase()
-                  .contains(query);
+          '${event.title} ${event.venue} ${event.description} ${event.department}'
+              .toLowerCase()
+              .contains(query);
       final matchesScope = _scope == 'All Events' || event.scope == _scope;
       final matchesDepartment =
           _department == 'All Departments' || event.department == _department;
@@ -169,25 +169,35 @@ class _EventsPageState extends State<EventsPage> {
             const Expanded(
               child: Text(
                 'eventEase.',
-                style: TextStyle(color: Colors.white, fontSize: 19,
-                    fontWeight: FontWeight.w900),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
             IconButton(
               tooltip: 'Campus announcements',
               onPressed: () => Navigator.push(
-                context, animatedRoute(const AnnouncementsPage()),
+                context,
+                animatedRoute(const AnnouncementsPage()),
               ),
-              icon: const Icon(Icons.notifications_none_rounded,
-                  color: Colors.white),
+              icon: const Icon(
+                Icons.notifications_none_rounded,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 12),
         const Text(
           'Discover campus events',
-          style: TextStyle(color: Colors.white, fontSize: 24,
-              fontWeight: FontWeight.w900, letterSpacing: -.35),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -.35,
+          ),
         ),
         const SizedBox(height: 3),
         const Text(
@@ -248,14 +258,14 @@ class _EventsPageState extends State<EventsPage> {
     items: options
         .map(
           (option) => DropdownMenuItem<String>(
-        value: option,
-        child: Text(
-          option,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12),
-        ),
-      ),
-    )
+            value: option,
+            child: Text(
+              option,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        )
         .toList(),
     onChanged: (value) {
       if (value != null) onChanged(value);
@@ -497,7 +507,7 @@ class _EventsPageState extends State<EventsPage> {
         const SizedBox(height: 7),
         Text(
           liveMode
-              ? 'Laravel event loading has not been connected. Switch to Demo Mode to preview the event list.'
+              ? 'Event loading has not been connected. Switch to Demo Mode to preview the event list.'
               : 'Try a different keyword or reset your filters.',
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -550,7 +560,7 @@ class _EventsPageState extends State<EventsPage> {
           base.host.isEmpty ||
           base.userInfo.isNotEmpty ||
           (base.path.isNotEmpty && base.path != '/')) {
-        throw StateError('The secure Laravel API address is not configured.');
+        throw StateError('The secure API address is not configured.');
       }
 
       // Always construct a fresh HTTPS URL rather than following an
@@ -562,13 +572,13 @@ class _EventsPageState extends State<EventsPage> {
 
       final response = await http
           .get(
-        uri,
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      )
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              'ngrok-skip-browser-warning': 'true',
+            },
+          )
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 401) {
@@ -590,7 +600,7 @@ class _EventsPageState extends State<EventsPage> {
       final decoded = jsonDecode(response.body);
       if (decoded is! Map || decoded['data'] is! List) {
         throw const FormatException(
-          'Unexpected Laravel events response format.',
+          'Unexpected events response format.',
         );
       }
 
@@ -620,7 +630,7 @@ class _EventsPageState extends State<EventsPage> {
             ? error.message.toString()
             : error is FormatException
             ? error.message
-            : 'Could not load live events. Check Laravel, ngrok and your connection.';
+            : 'Could not load live events. Check your connection.';
         _loadingLive = false;
         _liveEvents = [];
       });
@@ -684,12 +694,12 @@ class _EventsPageState extends State<EventsPage> {
 
   List<String> get _liveDepartments {
     final values =
-    _liveEvents
-        .map((event) => _liveString(event['target_department']))
-        .where((department) => department.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+        _liveEvents
+            .map((event) => _liveString(event['target_department']))
+            .where((department) => department.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
     return ['All Departments', ...values];
   }
 
@@ -769,9 +779,9 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   Widget _liveEventDetailsPage(
-      Map<String, dynamic> event,
-      GlobalKey<_LiveParticipantCounterState> participantKey,
-      ) {
+    Map<String, dynamic> event,
+    GlobalKey<_LiveParticipantCounterState> participantKey,
+  ) {
     final colors = Theme.of(context).colorScheme;
     final title = _liveString(event['title']);
     final date = _friendlyDate(event['event_date']);
@@ -913,7 +923,7 @@ class _EventsPageState extends State<EventsPage> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: const Text(
-                        'LIVE LARAVEL EVENT',
+                        'LIVE EVENT',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
@@ -1033,8 +1043,20 @@ class _EventsPageState extends State<EventsPage> {
     final time = _friendlyTime(event['start_time']);
     final venue = _liveString(event['venue']);
     final title = _liveString(event['title']);
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
+    ];
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -1062,41 +1084,60 @@ class _EventsPageState extends State<EventsPage> {
                   ),
                   child: dateValue != null
                       ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(months[dateValue.month - 1],
-                          style: const TextStyle(color: _gold,
-                              fontSize: 11, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 2),
-                      Text('${dateValue.day}',
-                          style: const TextStyle(color: Colors.white,
-                              fontSize: 27, fontWeight: FontWeight.w900)),
-                    ],
-                  )
-                      : const Icon(Icons.event_rounded,
-                      color: _gold, size: 28),
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              months[dateValue.month - 1],
+                              style: const TextStyle(
+                                color: _gold,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${dateValue.day}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 27,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const Icon(Icons.event_rounded, color: _gold, size: 28),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title.isEmpty ? 'Campus event' : title,
-                          maxLines: 2, overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: _colors.onSurface,
-                              fontSize: 15, fontWeight: FontWeight.w800)),
+                      Text(
+                        title.isEmpty ? 'Campus event' : title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _colors.onSurface,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       _detailLine(Icons.calendar_today_outlined, date),
                       _detailLine(Icons.schedule_outlined, time),
-                      _detailLine(Icons.place_outlined,
-                          venue.isEmpty ? 'Venue to be confirmed' : venue),
+                      _detailLine(
+                        Icons.place_outlined,
+                        venue.isEmpty ? 'Venue to be confirmed' : venue,
+                      ),
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 6,
                         runSpacing: 5,
                         children: [
-                          _pill(past ? 'PAST' : 'UPCOMING',
-                              past ? _colors.onSurfaceVariant : _mint),
+                          _pill(
+                            past ? 'PAST' : 'UPCOMING',
+                            past ? _colors.onSurfaceVariant : _mint,
+                          ),
                           if (status.isNotEmpty)
                             _pill(status.toUpperCase(), _blue),
                           if (_liveTargeted(event))
@@ -1107,8 +1148,10 @@ class _EventsPageState extends State<EventsPage> {
                   ),
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.chevron_right_rounded,
-                    color: _colors.onSurfaceVariant),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: _colors.onSurfaceVariant,
+                ),
               ],
             ),
           ),
@@ -1120,7 +1163,8 @@ class _EventsPageState extends State<EventsPage> {
   Widget _buildLiveEvents() {
     final events = _filteredLiveEvents;
     final hasSearch = _search.trim().isNotEmpty;
-    final hasFilters = _status != 'All' ||
+    final hasFilters =
+        _status != 'All' ||
         _liveAudience != 'All Audiences' ||
         _department != 'All Departments';
     return Scaffold(
@@ -1159,12 +1203,16 @@ class _EventsPageState extends State<EventsPage> {
                                 },
                               ),
                             IconButton(
-                              tooltip: _showFilters ? 'Hide filters' : 'More filters',
-                              onPressed: () => setState(
-                                      () => _showFilters = !_showFilters),
-                              icon: Icon(_showFilters
-                                  ? Icons.tune_rounded
-                                  : Icons.tune_outlined),
+                              tooltip: _showFilters
+                                  ? 'Hide filters'
+                                  : 'More filters',
+                              onPressed: () =>
+                                  setState(() => _showFilters = !_showFilters),
+                              icon: Icon(
+                                _showFilters
+                                    ? Icons.tune_rounded
+                                    : Icons.tune_outlined,
+                              ),
                             ),
                           ],
                         ),
@@ -1178,7 +1226,9 @@ class _EventsPageState extends State<EventsPage> {
                           borderRadius: BorderRadius.circular(17),
                           borderSide: BorderSide(color: _colors.outlineVariant),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 14,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -1186,13 +1236,18 @@ class _EventsPageState extends State<EventsPage> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          for (final status in const ['All', 'Upcoming', 'Past'])
+                          for (final status in const [
+                            'All',
+                            'Upcoming',
+                            'Past',
+                          ])
                             Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: ChoiceChip(
                                 label: Text(status),
                                 selected: _status == status,
-                                onSelected: (_) => setState(() => _status = status),
+                                onSelected: (_) =>
+                                    setState(() => _status = status),
                               ),
                             ),
                           if (hasFilters)
@@ -1212,24 +1267,32 @@ class _EventsPageState extends State<EventsPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            _loadingLive ? 'Finding events...' :
-                            _liveError != null ? 'Campus events' :
-                            '${events.length} ${events.length == 1 ? 'event' : 'events'} on this page',
+                            _loadingLive
+                                ? 'Finding events...'
+                                : _liveError != null
+                                ? 'Campus events'
+                                : '${events.length} ${events.length == 1 ? 'event' : 'events'} on this page',
                             style: TextStyle(
-                                color: _colors.onSurface, fontSize: 15,
-                                fontWeight: FontWeight.w900),
+                              color: _colors.onSurface,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                         if (_liveError == null && !_loadingLive)
                           Tooltip(
                             message: 'Campus events loaded from the server',
-                            child: const Icon(Icons.cloud_done_outlined,
-                                color: _mint, size: 20),
+                            child: const Icon(
+                              Icons.cloud_done_outlined,
+                              color: _mint,
+                              size: 20,
+                            ),
                           ),
                         IconButton(
                           tooltip: 'Refresh events',
-                          onPressed: _loadingLive ? null :
-                              () => _loadLiveEvents(page: _livePage),
+                          onPressed: _loadingLive
+                              ? null
+                              : () => _loadLiveEvents(page: _livePage),
                           icon: const Icon(Icons.refresh_rounded),
                         ),
                       ],
@@ -1237,9 +1300,13 @@ class _EventsPageState extends State<EventsPage> {
                     if (_liveLastPage > 1 && !_loadingLive)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
-                        child: Text('Page $_livePage of $_liveLastPage · $_liveTotal total events',
-                            style: TextStyle(fontSize: 11,
-                                color: _colors.onSurfaceVariant)),
+                        child: Text(
+                          'Page $_livePage of $_liveLastPage · $_liveTotal total events',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: _colors.onSurfaceVariant,
+                          ),
+                        ),
                       ),
                     const SizedBox(height: 5),
                     if (_loadingLive) ...[
@@ -1258,11 +1325,14 @@ class _EventsPageState extends State<EventsPage> {
                       EventEaseStatusPanel(
                         icon: Icons.event_busy_outlined,
                         title: hasSearch || hasFilters
-                            ? 'No matching events' : 'No events available yet',
+                            ? 'No matching events'
+                            : 'No events available yet',
                         message: hasSearch || hasFilters
                             ? 'Try a different search or clear the filters.'
                             : 'Check back for upcoming campus activities.',
-                        actionLabel: hasSearch || hasFilters ? 'Clear filters' : 'Refresh',
+                        actionLabel: hasSearch || hasFilters
+                            ? 'Clear filters'
+                            : 'Refresh',
                         onAction: hasSearch || hasFilters
                             ? _resetLiveFilters
                             : () => _loadLiveEvents(page: _livePage),
@@ -1270,30 +1340,38 @@ class _EventsPageState extends State<EventsPage> {
                     ] else ...[
                       ...events.map(_liveCard),
                     ],
-                    if (_liveError == null && !_loadingLive && _liveLastPage > 1) ...[
+                    if (_liveError == null &&
+                        !_loadingLive &&
+                        _liveLastPage > 1) ...[
                       const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           OutlinedButton.icon(
-                            onPressed: _livePage > 1 ?
-                                () => _loadLiveEvents(page: _livePage - 1) : null,
+                            onPressed: _livePage > 1
+                                ? () => _loadLiveEvents(page: _livePage - 1)
+                                : null,
                             icon: const Icon(Icons.chevron_left_rounded),
                             label: const Text('Previous'),
                           ),
                           Text('$_livePage / $_liveLastPage'),
                           OutlinedButton.icon(
-                            onPressed: _livePage < _liveLastPage ?
-                                () => _loadLiveEvents(page: _livePage + 1) : null,
+                            onPressed: _livePage < _liveLastPage
+                                ? () => _loadLiveEvents(page: _livePage + 1)
+                                : null,
                             icon: const Icon(Icons.chevron_right_rounded),
                             label: const Text('Next'),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Text('Search and filters apply to this page only.',
-                          style: TextStyle(fontSize: 11,
-                              color: _colors.onSurfaceVariant)),
+                      Text(
+                        'Search and filters apply to this page only.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _colors.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -1335,7 +1413,7 @@ class _EventsPageState extends State<EventsPage> {
                         onPressed: realMode
                             ? null
                             : () =>
-                            setState(() => _showFilters = !_showFilters),
+                                  setState(() => _showFilters = !_showFilters),
                         icon: const Icon(Icons.tune_rounded),
                       ),
                       border: OutlineInputBorder(
@@ -1460,18 +1538,18 @@ class _LiveLaravelRegistrationActionsState
         );
         final response = await http
             .get(
-          uri,
-          headers: {
-            'Accept': 'application/json',
-            'Authorization': 'Bearer $token',
-            'ngrok-skip-browser-warning': 'true',
-          },
-        )
+              uri,
+              headers: {
+                'Accept': 'application/json',
+                'Authorization': 'Bearer $token',
+                'ngrok-skip-browser-warning': 'true',
+              },
+            )
             .timeout(const Duration(seconds: 20));
         if (response.statusCode != 200) {
           throw StateError(
             'Could not verify existing registrations '
-                '(HTTP ${response.statusCode}).',
+            '(HTTP ${response.statusCode}).',
           );
         }
         final decoded = jsonDecode(response.body);
@@ -1621,8 +1699,8 @@ class _LiveLaravelRegistrationActionsState
         title: const Text('Confirm registration'),
         content: Text(
           'Submit your student account to Laravel for '
-              '"${_field('title')}"? The server will check eligibility, '
-              'capacity, and duplicate registrations.',
+          '"${_field('title')}"? The server will check eligibility, '
+          'capacity, and duplicate registrations.',
         ),
         actions: [
           TextButton(
@@ -1668,15 +1746,15 @@ class _LiveLaravelRegistrationActionsState
       // not the numeric database ID. Backend determines eligibility and status.
       final response = await http
           .post(
-        uri,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode({'event_reference': _eventReference}),
-      )
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+              'ngrok-skip-browser-warning': 'true',
+            },
+            body: jsonEncode({'event_reference': _eventReference}),
+          )
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -1686,7 +1764,7 @@ class _LiveLaravelRegistrationActionsState
           _serverAccepted = true;
           _feedbackIsError = false;
           _feedback =
-          'Laravel accepted your registration. '
+              'Your registration is accepted.'
               'The registration and any QR credential are managed by the server.';
         });
         widget.onSuccessfulRegistration();
@@ -1695,11 +1773,11 @@ class _LiveLaravelRegistrationActionsState
         if (!mounted) return;
         final duplicate =
             message.toLowerCase().contains('already registered') ||
-                message.toLowerCase().contains('already enrolled');
+            message.toLowerCase().contains('already enrolled');
         setState(() {
           if (duplicate) _alreadyRegistered = true;
           _feedback = duplicate
-              ? 'Laravel confirms you are already registered for this event.'
+              ? 'You are already registered for this event.'
               : message;
           _feedbackIsError = !duplicate;
         });
@@ -1714,7 +1792,7 @@ class _LiveLaravelRegistrationActionsState
       if (!mounted) return;
       setState(() {
         _feedback =
-        'Could not submit registration. Check your Internet, '
+            'Could not submit registration. Check your Internet, '
             'Laravel server, and ngrok tunnel, then try again.';
         _feedbackIsError = true;
       });
@@ -1729,10 +1807,10 @@ class _LiveLaravelRegistrationActionsState
     final reason = _unavailableReason;
     final canRegister =
         !_serverAccepted &&
-            !_alreadyRegistered &&
-            !_checkingRegistration &&
-            !_registrationCheckFailed &&
-            reason == null;
+        !_alreadyRegistered &&
+        !_checkingRegistration &&
+        !_registrationCheckFailed &&
+        reason == null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1758,13 +1836,7 @@ class _LiveLaravelRegistrationActionsState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_serverAccepted || _alreadyRegistered)
-                const Text(
-                  'Already registered in Laravel',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF168566),
-                  ),
-                ),
+
               if (reason != null && !_serverAccepted && !_alreadyRegistered)
                 Text(
                   reason,
@@ -1787,17 +1859,17 @@ class _LiveLaravelRegistrationActionsState
                   ),
                   icon: (_isSubmitting || _checkingRegistration)
                       ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : Icon(
-                    (_serverAccepted || _alreadyRegistered)
-                        ? Icons.check_circle_rounded
-                        : reason != null
-                        ? Icons.event_busy_rounded
-                        : Icons.how_to_reg_rounded,
-                  ),
+                          (_serverAccepted || _alreadyRegistered)
+                              ? Icons.check_circle_rounded
+                              : reason != null
+                              ? Icons.event_busy_rounded
+                              : Icons.how_to_reg_rounded,
+                        ),
                   label: Text(
                     _isSubmitting
                         ? 'Submitting...'
@@ -1854,16 +1926,7 @@ class _LiveLaravelRegistrationActionsState
                 ),
               ],
               const SizedBox(height: 12),
-              Text(
-                'Registration decisions and attendance QR passes are '
-                    'controlled by Laravel. This page does not issue demo '
-                    'passes or mark you as attended.',
-                style: TextStyle(
-                  color: colors.onSurfaceVariant,
-                  height: 1.4,
-                  fontSize: 12,
-                ),
-              ),
+
             ],
           ),
         ),
@@ -1871,7 +1934,6 @@ class _LiveLaravelRegistrationActionsState
     );
   }
 }
-
 
 // Server-backed participant count for the REAL API event details screen.
 // Refreshes when opened, every 30 seconds while visible, and after registering.
@@ -1881,7 +1943,8 @@ class _LiveParticipantCounter extends StatefulWidget {
   const _LiveParticipantCounter({super.key, required this.event});
 
   @override
-  State<_LiveParticipantCounter> createState() => _LiveParticipantCounterState();
+  State<_LiveParticipantCounter> createState() =>
+      _LiveParticipantCounterState();
 }
 
 class _LiveParticipantCounterState extends State<_LiveParticipantCounter> {
@@ -1920,24 +1983,32 @@ class _LiveParticipantCounterState extends State<_LiveParticipantCounter> {
         throw StateError('Sign in again to refresh the count.');
       }
       final origin = Uri.tryParse(ApiConfig.baseUrl.trim());
-      if (origin == null || origin.scheme != 'https' ||
-          origin.host.isEmpty || origin.userInfo.isNotEmpty ||
+      if (origin == null ||
+          origin.scheme != 'https' ||
+          origin.host.isEmpty ||
+          origin.userInfo.isNotEmpty ||
           (origin.path.isNotEmpty && origin.path != '/')) {
         throw StateError('Secure API connection is not configured.');
       }
       final identifier = (widget.event['reference'] ?? widget.event['id'] ?? '')
-          .toString().trim();
+          .toString()
+          .trim();
       if (identifier.isEmpty) throw StateError('Event reference unavailable.');
       final uri = origin.replace(
         path: '/api/events/${Uri.encodeComponent(identifier)}',
         query: null,
         fragment: null,
       );
-      final response = await http.get(uri, headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-        'ngrok-skip-browser-warning': 'true',
-      }).timeout(const Duration(seconds: 20));
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              'ngrok-skip-browser-warning': 'true',
+            },
+          )
+          .timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) {
         throw StateError('Could not refresh (HTTP ${response.statusCode}).');
       }
@@ -1964,8 +2035,8 @@ class _LiveParticipantCounterState extends State<_LiveParticipantCounter> {
     final record = _latest ?? widget.event;
     // Use the backend's authoritative active-registration count when supplied.
     // The event endpoint may expose either of these keys.
-    final registered = _count(record, 'registrations_count') ??
-        _count(record, 'participants');
+    final registered =
+        _count(record, 'registrations_count') ?? _count(record, 'participants');
     final capacity = _count(record, 'capacity');
     final remaining = registered != null && capacity != null && capacity > 0
         ? (capacity - registered).clamp(0, capacity).toInt()
@@ -1978,43 +2049,68 @@ class _LiveParticipantCounterState extends State<_LiveParticipantCounter> {
         border: Border.all(color: colors.outlineVariant),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.groups_rounded, size: 22),
-          const SizedBox(width: 10),
-          Expanded(child: Text('Registered participants',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800,
-                  color: colors.onSurface))),
-          IconButton(
-            tooltip: 'Refresh participant count',
-            onPressed: _updating ? null : refresh,
-            icon: _updating
-                ? const SizedBox(width: 18, height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.refresh_rounded),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.groups_rounded, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Registered participants',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: colors.onSurface,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Refresh participant count',
+                onPressed: _updating ? null : refresh,
+                icon: _updating
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+              ),
+            ],
           ),
-        ]),
-        Text(registered == null ? 'Count unavailable'
-            : capacity != null && capacity > 0
-            ? '$registered / $capacity registered'
-            : '$registered registered',
-            style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900,
-                color: colors.onSurface)),
-        if (capacity != null && capacity > 0 && registered != null) ...[
-          const SizedBox(height: 10),
-          LinearProgressIndicator(
-            value: (registered / capacity).clamp(0.0, 1.0).toDouble(),
-            minHeight: 8,
-            borderRadius: BorderRadius.circular(8),
+          Text(
+            registered == null
+                ? 'Count unavailable'
+                : capacity != null && capacity > 0
+                ? '$registered / $capacity registered'
+                : '$registered registered',
+            style: TextStyle(
+              fontSize: 23,
+              fontWeight: FontWeight.w900,
+              color: colors.onSurface,
+            ),
           ),
+          if (capacity != null && capacity > 0 && registered != null) ...[
+            const SizedBox(height: 10),
+            LinearProgressIndicator(
+              value: (registered / capacity).clamp(0.0, 1.0).toDouble(),
+              minHeight: 8,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              '$remaining slots remaining',
+              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+            ),
+          ],
           const SizedBox(height: 7),
-          Text('$remaining slots remaining',
-              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+          Text(
+            _error ?? 'Updated from campus records every 30 seconds.',
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11),
+          ),
         ],
-        const SizedBox(height: 7),
-        Text(_error ?? 'Updated from campus records every 30 seconds.',
-            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11)),
-      ]),
+      ),
     );
   }
 }

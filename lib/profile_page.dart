@@ -15,6 +15,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   bool _loadingProfile = false;
   String? _profileError;
+  String _studentStatus = '';
   int _profileRequestId = 0;
 
   @override
@@ -53,8 +54,12 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     });
     try {
       final base = Uri.tryParse(ApiConfig.baseUrl.trim());
-      if (base == null || base.scheme != 'https' || base.host.isEmpty ||
-          base.userInfo.isNotEmpty || base.hasQuery || base.hasFragment ||
+      if (base == null ||
+          base.scheme != 'https' ||
+          base.host.isEmpty ||
+          base.userInfo.isNotEmpty ||
+          base.hasQuery ||
+          base.hasFragment ||
           (base.path.isNotEmpty && base.path != '/')) {
         throw StateError('Configure your active HTTPS Laravel/ngrok URL.');
       }
@@ -62,22 +67,28 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
       if (token == null || token.trim().isEmpty) {
         throw StateError('Your session expired. Sign in again.');
       }
-      final response = await http.get(
-        base.replace(path: '/api/auth/me', query: null, fragment: null),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      ).timeout(const Duration(seconds: 20));
+      final response = await http
+          .get(
+            base.replace(path: '/api/auth/me', query: null, fragment: null),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+              'ngrok-skip-browser-warning': 'true',
+            },
+          )
+          .timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) {
         if (response.statusCode == 401) {
           throw StateError('Your session expired. Sign in again.');
         }
         if (response.statusCode == 404) {
-          throw StateError('Laravel profile endpoint /api/auth/me was not found.');
+          throw StateError(
+            'Profile endpoint /api/auth/me was not found.',
+          );
         }
-        throw StateError('Unable to load profile (HTTP ${response.statusCode}).');
+        throw StateError(
+          'Unable to load profile (HTTP ${response.statusCode}).',
+        );
       }
       final decoded = jsonDecode(response.body);
       if (decoded is! Map) {
@@ -97,6 +108,12 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         savedCourse = _value(user['course']);
         savedYear = _value(user['year']);
         savedBlock = _value(user['block_no'] ?? user['block']);
+        final rawStatus = _value(user['student_status']);
+        _studentStatus =
+            (rawStatus.toLowerCase() == 'regular' ||
+                rawStatus.toLowerCase() == 'irregular')
+            ? rawStatus[0].toUpperCase() + rawStatus.substring(1).toLowerCase()
+            : '';
         final department = user['department'];
         if (department is Map) {
           savedDepartment = _value(department['name'] ?? department['code']);
@@ -109,9 +126,11 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     } catch (error) {
       if (!mounted || requestId != _profileRequestId) return;
       setState(() {
-        _profileError = error is StateError ? error.message.toString()
-            : error is FormatException ? error.message
-            : 'Unable to connect to Laravel. Check ngrok and retry.';
+        _profileError = error is StateError
+            ? error.message.toString()
+            : error is FormatException
+            ? error.message
+            : 'Unable to connect. Check your internet and retry.';
       });
     } finally {
       if (mounted && requestId == _profileRequestId) {
@@ -125,10 +144,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   // ====================================================
 
   Future<void> openEditProfile() async {
-    await Navigator.push(
-      context,
-      animatedRoute(const EditProfilePage()),
-    );
+    await Navigator.push(context, animatedRoute(const EditProfilePage()));
 
     if (!mounted) return;
 
@@ -149,8 +165,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         final theme = Theme.of(dialogContext);
         final colors = theme.colorScheme;
 
-        final isDark =
-            theme.brightness == Brightness.dark;
+        final isDark = theme.brightness == Brightness.dark;
 
         return AlertDialog(
           backgroundColor: colors.surface,
@@ -181,7 +196,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           // CONFIRMATION MESSAGE
           content: Text(
             'Are you sure you want to end '
-                'your current session?',
+            'your current session?',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: colors.onSurfaceVariant,
@@ -199,44 +214,33 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                 Navigator.pop(dialogContext, false);
               },
               style: TextButton.styleFrom(
-                foregroundColor:
-                isDark ? yellow : navy,
+                foregroundColor: isDark ? yellow : navy,
               ),
               child: const Text(
                 'Stay',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
 
             FilledButton.icon(
               style: FilledButton.styleFrom(
-                backgroundColor: isDark
-                    ? const Color(0xFFBF4242)
-                    : navy,
+                backgroundColor: isDark ? const Color(0xFFBF4242) : navy,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 18,
                   vertical: 12,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius:
-                  BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               onPressed: () {
                 Navigator.pop(dialogContext, true);
               },
-              icon: const Icon(
-                Icons.logout_rounded,
-                size: 18,
-              ),
+              icon: const Icon(Icons.logout_rounded, size: 18),
               label: const Text(
                 'Logout',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -260,11 +264,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   void openResetPassword() {
     Navigator.push(
       context,
-      animatedRoute(
-        ForgotPasswordPage(
-          initialEmail: savedEmail,
-        ),
-      ),
+      animatedRoute(ForgotPasswordPage(initialEmail: savedEmail)),
     );
   }
 
@@ -277,11 +277,9 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     return Stack(
       children: [
         EventEaseProfileView(
-
           // ================================================
           // STUDENT PERSONAL INFORMATION
           // ================================================
-
           name: savedName,
 
           email: savedEmail,
@@ -296,10 +294,11 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
 
           block: savedBlock,
 
+          studentStatus: _studentStatus,
+
           // ================================================
           // PROFILE ACTIONS
           // ================================================
-
           onEdit: openEditProfile,
 
           onResetPassword: openResetPassword,
@@ -328,8 +327,13 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(_profileError!,
-                          style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+                        child: Text(
+                          _profileError!,
+                          style: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onErrorContainer,
+                          ),
                         ),
                       ),
                       TextButton(

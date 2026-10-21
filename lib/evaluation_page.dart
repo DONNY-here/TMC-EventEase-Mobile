@@ -71,7 +71,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
         base.host.isEmpty ||
         base.userInfo.isNotEmpty ||
         (base.path.isNotEmpty && base.path != '/')) {
-      throw StateError('The secure Laravel API URL is not configured.');
+      throw StateError('The secured API URL is not configured.');
     }
     return base.replace(path: path, queryParameters: query, fragment: null);
   }
@@ -215,10 +215,7 @@ class _EvaluationPageState extends State<EvaluationPage> {
       return;
     }
     if (_eventReference.isEmpty) {
-      showMessage(
-        context,
-        'This registration is missing its event reference.',
-      );
+      showMessage(context, 'This registration is missing its event reference.');
       return;
     }
     if (rating < 1 || rating > 5) {

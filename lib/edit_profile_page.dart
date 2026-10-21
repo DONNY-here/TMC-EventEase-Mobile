@@ -1,6 +1,7 @@
 part of 'main.dart';
 
-// Authenticated Laravel student profile editing. No changes to login/logout.
+// Student-facing editor. Official identity/enrollment fields are read-only.
+// Laravel must independently enforce this policy on PUT /api/auth/profile.
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
 
@@ -9,88 +10,30 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  late final TextEditingController nameController;
-  late final TextEditingController emailController;
-  late final TextEditingController schoolIdController;
-  late final TextEditingController currentPasswordController;
-  late final TextEditingController blockController;
-  late final TextEditingController departmentController;
-  String selectedCourse = '';
-  String selectedYear = '';
+  late final TextEditingController _blockController;
   bool _loading = false;
   bool _saving = false;
   String? _error;
-  String _originalEmail = '';
-  String _originalSchoolId = '';
-  bool _passwordVisible = false;
-  String _originalName = '';
-  String _originalCourse = '';
-  String _originalYear = '';
+  String _name = '';
+  String _email = '';
+  String _schoolId = '';
+  String _department = '';
+  String _course = '';
+  String _year = '';
+  String _studentStatus = '';
   String _originalBlock = '';
-  String _originalDepartment = '';
-
-  // r department codes. Course options match the registration UI;
-  // AcademicStructure on Laravel remains the final authority.
-  static const Map<String, String> _departmentNames = {
-    'CCS': 'College of Computer Studies',
-    'COED': 'College of Education',
-    'CCJE': 'College of Criminal Justice Education',
-    'COAD': 'College of Office Administration',
-    'CAS': 'College of Arts and Sciences',
-  };
-
-  static const Map<String, List<String>> _departmentCourses = {
-    'CCS': ['BSIT'],
-    'COED': ['BEED', 'BSED'],
-    'CCJE': ['BSCRIM'],
-    'COAD': ['BSOA'],
-    'CAS': ['AB Political Science', 'AB Communication'],
-  };
-
-  String selectedDepartment = '';
-
-  String _resolveDepartment(String raw, String course) {
-    final normalized = raw.trim().toLowerCase();
-    for (final entry in _departmentNames.entries) {
-      if (entry.key.toLowerCase() == normalized ||
-          entry.value.toLowerCase() == normalized) {
-        return entry.key;
-      }
-    }
-    // Infer only when the API does not provide department.
-    if (normalized.isEmpty) {
-      for (final entry in _departmentCourses.entries) {
-        if (entry.value.any(
-          (c) => c.toLowerCase() == course.trim().toLowerCase(),
-        )) {
-          return entry.key;
-        }
-      }
-    }
-    return raw.trim();
-  }
-
-  static const _years = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
 
   @override
   void initState() {
     super.initState();
-    nameController = TextEditingController(text: savedName);
-    emailController = TextEditingController(text: savedEmail);
-    schoolIdController = TextEditingController(text: savedStudentId);
-    currentPasswordController = TextEditingController();
-    _originalEmail = savedEmail;
-    _originalSchoolId = savedStudentId;
-    blockController = TextEditingController();
-    departmentController = TextEditingController(text: savedDepartment);
-    _originalDepartment = savedDepartment;
-    selectedDepartment = _resolveDepartment(savedDepartment, savedCourse);
-    _applyFields(
-      name: savedName,
-      course: savedCourse,
-      year: savedYear,
-      block: savedBlock,
-    );
+    _name = savedName;
+    _email = savedEmail;
+    _schoolId = savedStudentId;
+    _department = savedDepartment;
+    _course = savedCourse;
+    _year = savedYear;
+    _blockController = TextEditingController(text: _blockNumber(savedBlock));
+    _originalBlock = _blockNumber(savedBlock);
     if (ApiConfig.useRealApi) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _fetchProfile();
@@ -100,14 +43,24 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   String _str(Object? value) => value == null ? '' : value.toString().trim();
 
-  Uri _endpoint(String path) {
+  // Accept legacy "Block 5" records, but always display digits only.
+  // No arbitrary upper block number is imposed by the Flutter form.
+  String _blockNumber(Object? value) {
+    final text = _str(value).replaceFirst(
+      RegExp(r'^Block\s*', caseSensitive: false),
+      '',
+    );
+    if (!RegExp(r'^[0-9]+$').hasMatch(text)) return '';
+    final normalized = text.replaceFirst(RegExp(r'^0+'), '');
+    return normalized.isEmpty ? '' : normalized;
+  }
+
+  Uri _uri(String path) {
     final base = Uri.tryParse(ApiConfig.baseUrl.trim());
-    if (base == null ||
-        base.scheme != 'https' ||
-        base.host.isEmpty ||
-        base.userInfo.isNotEmpty ||
+    if (base == null || base.scheme != 'https' || base.host.isEmpty ||
+        base.userInfo.isNotEmpty || base.hasQuery || base.hasFragment ||
         (base.path.isNotEmpty && base.path != '/')) {
-      throw StateError('The secure API URL is not configured.');
+      throw StateError('Configure a valid HTTPS API URL.');
     }
     return base.replace(path: path, query: null, fragment: null);
   }
@@ -115,7 +68,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Future<Map<String, String>> _headers({bool json = false}) async {
     final token = await authTokenStorage.readValidToken();
     if (token == null || token.trim().isEmpty) {
-      throw StateError('Your session expired. Please log in again.');
+      throw StateError('Your session has expired. Sign in again.');
     }
     return {
       'Accept': 'application/json',
@@ -125,655 +78,309 @@ class _EditProfilePageState extends State<EditProfilePage> {
     };
   }
 
-  Map<String, dynamic> _userRecord(Object? decoded) {
-    if (decoded is! Map) {
-      throw const FormatException('Invalid profile response.');
-    }
-    final body = Map<String, dynamic>.from(decoded);
-    final inner = body['user'] ?? body['data'];
-    if (inner is Map) return Map<String, dynamic>.from(inner);
-    return body;
+  Map<String, dynamic> _user(Object? decoded) {
+    if (decoded is! Map) throw const FormatException('Invalid profile response.');
+    final map = Map<String, dynamic>.from(decoded);
+    final nested = map['user'] ?? map['data'];
+    return nested is Map ? Map<String, dynamic>.from(nested) : map;
   }
 
-  String _serverError(http.Response response) {
+  String _errorMessage(http.Response response) {
     try {
-      final body = jsonDecode(response.body);
-      if (body is Map) {
-        final errors = body['errors'];
-        if (errors is Map && errors.isNotEmpty) {
-          const fieldNames = {
-            'department': 'Department',
-            'course': 'Course / Program',
-            'year': 'Year Level',
-            'block_no': 'Block',
-            'student_id': 'School ID',
-            'school_id': 'School ID',
-            'email': 'Email',
-            'current_password': 'Current Password',
-            'name': 'Full Name',
-          };
-          for (final entry in errors.entries) {
-            final messages = entry.value;
-            final message = messages is List && messages.isNotEmpty
-                ? messages.first.toString()
-                : messages is String
-                ? messages
-                : '';
-            if (message.isNotEmpty) {
-              return '${fieldNames[entry.key] ?? entry.key}: $message';
-            }
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map) {
+        final fields = decoded['errors'];
+        if (fields is Map) {
+          for (final value in fields.values) {
+            if (value is List && value.isNotEmpty) return '${value.first}';
+            if (value is String && value.isNotEmpty) return value;
           }
         }
-        if (body['message'] is String) return body['message'];
+        if (decoded['message'] is String) return decoded['message'];
       }
     } catch (_) {}
-    if (response.statusCode == 401) {
-      return 'Session expired. Please log in again.';
-    }
-    if (response.statusCode == 403) {
-      return 'Only Student accounts can update profiles.';
-    }
-    return 'eventEase returned HTTP ${response.statusCode}.';
+    if (response.statusCode == 401) return 'Session expired. Sign in again.';
+    if (response.statusCode == 403) return 'Your account cannot update this profile.';
+    return 'Request failed (HTTP ${response.statusCode}).';
   }
 
-  // Laravel accepts nullable block_no strings of up to 50 characters,
-  // including alphanumeric values such as B, 12, and Block 12.
-  String _readBlock(Object? raw) => _str(raw);
-
-  // Keep the two-digit prefix and up to six digits after the dash.
-  String _formatSchoolId(String input) {
-    final digits = input.replaceAll(RegExp(r'\D'), '');
-    final limited = digits.length > 8 ? digits.substring(0, 8) : digits;
-    if (limited.length <= 2) return limited;
-    return '${limited.substring(0, 2)}-${limited.substring(2)}';
+  String _status(Object? value) {
+    final raw = _str(value).toLowerCase();
+    if (raw == 'regular') return 'Regular';
+    if (raw == 'irregular') return 'Irregular';
+    return 'Not provided';
   }
 
-  void _applyFields({
-    required String name,
-    required String course,
-    required String year,
-    required String block,
-  }) {
-    nameController.text = name;
-    selectedCourse = course;
-    selectedYear = year;
-    blockController.text = _readBlock(block);
-    _originalName = name;
-    _originalCourse = course;
-    _originalYear = year;
-    _originalBlock = blockController.text;
+  void _fill(Map<String, dynamic> user) {
+    _name = _str(user['name']);
+    _email = _str(user['email']);
+    _schoolId = _str(user['student_id'] ?? user['school_id']);
+    _course = _str(user['course']);
+    _year = _str(user['year']);
+    _studentStatus = _status(user['student_status']);
+    final dept = user['department'];
+    _department = dept is Map
+        ? _str(dept['name'] ?? dept['code'])
+        : _str(user['department_name'] ?? dept);
+    if (_department.isEmpty) _department = savedDepartment;
+    _originalBlock = _blockNumber(user['block_no'] ?? user['block']);
+    _blockController.text = _originalBlock;
+    savedName = _name;
+    savedEmail = _email;
+    savedStudentId = _schoolId;
+    savedDepartment = _department;
+    savedCourse = _course;
+    savedYear = _year;
+    savedBlock = _originalBlock;
   }
 
   Future<void> _fetchProfile() async {
     if (_loading || _saving) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
-      final response = await http
-          .get(_endpoint('/api/auth/me'), headers: await _headers())
-          .timeout(const Duration(seconds: 20));
-      if (response.statusCode != 200) throw StateError(_serverError(response));
-      final user = _userRecord(jsonDecode(response.body));
-      // Don't silently overwrite the UI with a malformed API response.
+      final response = await http.get(
+        _uri('/api/auth/me'), headers: await _headers(),
+      ).timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) throw StateError(_errorMessage(response));
+      final user = _user(jsonDecode(response.body));
       if (!user.containsKey('name')) {
-        throw const FormatException('Profile response is missing name.');
+        throw const FormatException('Profile response does not contain student details.');
       }
       if (!mounted) return;
-      setState(() {
-        final name = _str(user['name']);
-        final course = _str(user['course']);
-        final year = _str(user['year']);
-        final block = _str(user['block_no']);
-        // Department may be a top-level string or a related object.
-        final departmentValue = user['department'];
-        final department = departmentValue is Map
-            ? _str(departmentValue['name'] ?? departmentValue['code'])
-            : _str(departmentValue);
-        selectedDepartment = _resolveDepartment(department, course);
-        savedDepartment = selectedDepartment;
-        departmentController.text = selectedDepartment;
-        _originalDepartment = selectedDepartment;
-        _applyFields(name: name, course: course, year: year, block: block);
-        savedName = name;
-        savedCourse = course;
-        savedYear = year;
-        savedBlock = block;
-        if (user['email'] != null) {
-          savedEmail = _str(user['email']);
-          emailController.text = savedEmail;
-          _originalEmail = savedEmail;
-        }
-        // Some Laravel account responses use student_id instead of school_id.
-        final rawId = user['school_id'] ?? user['student_id'];
-        if (rawId != null) {
-          savedStudentId = _str(rawId);
-          schoolIdController.text = savedStudentId;
-          _originalSchoolId = savedStudentId;
-        }
-      });
-    } catch (e) {
+      setState(() => _fill(user));
+    } catch (error) {
       if (mounted) {
-        setState(() {
-          _error = e is StateError
-              ? e.message.toString()
-              : e is FormatException
-              ? e.message
-              : 'Could not retrieve your profile. Please retry.';
-        });
+        setState(() => _error = error is StateError
+            ? error.message.toString()
+            : error is FormatException
+            ? error.message
+            : 'Could not connect. Check your internet.');
       }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> saveChanges() async {
-    if (_saving || _loading || (ApiConfig.useRealApi && _error != null)) return;
-    final name = nameController.text.trim();
-    final email = emailController.text.trim();
-    final schoolId = schoolIdController.text.trim();
-    final blockText = blockController.text.trim();
-    final department = selectedDepartment;
-
-    final emailChanged = email != _originalEmail;
-    final schoolIdChanged = schoolId != _originalSchoolId;
-    final identifierChanged = emailChanged || schoolIdChanged;
-
-    if (name.isEmpty || name.length > 255) {
-      showMessage(context, 'Enter a name between 1 and 255 characters.');
+  Future<void> _save() async {
+    if (_loading || _saving || (ApiConfig.useRealApi && _error != null)) return;
+    final rawBlock = _blockController.text.trim();
+    if (!RegExp(r'^[0-9]+$').hasMatch(rawBlock) ||
+        !RegExp(r'[1-9]').hasMatch(rawBlock)) {
+      showMessage(context, 'Enter your block number.');
       return;
     }
-    if (blockText.length > 50) {
-      showMessage(context, 'Block must not exceed 50 characters.');
-      return;
-    }
-    if (!_departmentCourses.containsKey(department)) {
-      showMessage(context, 'Select a valid department.');
-      return;
-    }
-    if (!_departmentCourses[department]!.contains(selectedCourse) &&
-        !(department ==
-                _resolveDepartment(_originalDepartment, _originalCourse) &&
-            selectedCourse == _originalCourse)) {
-      showMessage(context, 'Select a course offered by your department.');
-      return;
-    }
-    if (selectedCourse.isEmpty || selectedYear.isEmpty) {
-      showMessage(context, 'Course and year are required.');
-      return;
-    }
-    if (emailChanged &&
-        !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-      showMessage(context, 'Enter a valid email address.');
-      return;
-    }
-    if (schoolIdChanged && !RegExp(r'^\d{2}-\d{6}$').hasMatch(schoolId)) {
-      showMessage(context, 'Enter a School ID such as 24-123456.');
-      return;
-    }
-    if (identifierChanged && currentPasswordController.text.isEmpty) {
-      showMessage(
-        context,
-        'Enter your current password to change School ID or email.',
-      );
-      return;
-    }
-
-    final changes = <String, dynamic>{};
-    if (name != _originalName) changes['name'] = name;
-    if (department !=
-        _resolveDepartment(_originalDepartment, _originalCourse)) {
-      changes['department'] = department;
-      // Changing department requires a compatible course in the same PUT.
-      changes['course'] = selectedCourse;
-    }
-    if (selectedCourse != _originalCourse) changes['course'] = selectedCourse;
-    if (selectedYear != _originalYear) changes['year'] = selectedYear;
-    if (blockText != _originalBlock) {
-      changes['block_no'] = blockText.isEmpty ? null : blockText;
-    }
-    if (emailChanged) changes['email'] = email;
-    if (schoolIdChanged) changes['school_id'] = schoolId;
-    if (identifierChanged) {
-      changes['current_password'] = currentPasswordController.text;
-    }
-    if (changes.isEmpty) {
+    final block = _blockNumber(rawBlock);
+    if (block == _originalBlock) {
       showMessage(context, 'No changes to save.');
       return;
     }
-
     if (!ApiConfig.useRealApi) {
-      savedName = name;
-      savedDepartment = department;
-      savedCourse = selectedCourse;
-      savedYear = selectedYear;
-      savedBlock = blockText;
-      savedEmail = email;
-      savedStudentId = schoolId;
-      currentPasswordController.clear();
+      savedBlock = block;
       if (!mounted) return;
-      showMessage(context, 'Demo profile updated locally.');
+      showMessage(context, 'Demo block updated locally.');
       Navigator.pop(context, true);
       return;
     }
-
     setState(() => _saving = true);
     try {
-      final response = await http
-          .put(
-            _endpoint('/api/auth/profile'),
-            headers: await _headers(json: true),
-            body: jsonEncode(changes),
-          )
-          .timeout(const Duration(seconds: 20));
-      if (response.statusCode != 200) throw StateError(_serverError(response));
-      final user = _userRecord(jsonDecode(response.body));
-      if (!user.containsKey('name')) {
-        throw const FormatException('Invalid profile update response.');
+      // Only the block is sent. Read-only fields are never included in the request.
+      final response = await http.put(
+        _uri('/api/auth/profile'),
+        headers: await _headers(json: true),
+        body: jsonEncode({'block_no': block.isEmpty ? null : block}),
+      ).timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) throw StateError(_errorMessage(response));
+      final user = _user(jsonDecode(response.body));
+      if (!user.containsKey('block_no')) {
+        throw const FormatException('Failed to confirm the block update.');
+      }
+      final saved = _blockNumber(user['block_no']);
+      if (saved != block) {
+        throw StateError('Returned a different block. Refresh the profile.');
       }
       if (!mounted) return;
-      // Laravel derives department from the persisted course. Compare its
-      // canonical department code, not a display name.
-      final responseDepartment = user['department'];
-      final savedValue = responseDepartment is Map
-          ? _str(responseDepartment['code'] ?? responseDepartment['name'])
-          : _str(responseDepartment);
-      final confirmedDepartment = _resolveDepartment(
-        savedValue,
-        _str(user['course']),
-      );
-      if (confirmedDepartment != department) {
-        throw StateError(
-          'eventEase did not confirm the selected department. '
-          'Refresh the profile and verify department/course compatibility.',
-        );
-      }
-      savedDepartment = confirmedDepartment;
-      savedName = _str(user['name']);
-      savedCourse = _str(user['course']);
-      savedYear = _str(user['year']);
-      final returnedBlock = _str(user['block_no']);
-      savedBlock = returnedBlock;
-      savedEmail = _str(user['email'] ?? email);
-      savedStudentId = _str(
-        user['school_id'] ?? user['student_id'] ?? schoolId,
-      );
-      currentPasswordController.clear();
-      showMessage(context, 'Profile updated!');
+      setState(() => _fill(user));
+      showMessage(context, 'Block updated successfully.');
       Navigator.pop(context, true);
-    } catch (e) {
+    } catch (error) {
       if (!mounted) return;
-      showMessage(
-        context,
-        e is StateError
-            ? e.message.toString()
-            : e is FormatException
-            ? e.message
-            : 'Update could not be confirmed. Refresh before retrying.',
-      );
+      showMessage(context, error is StateError
+          ? error.message.toString()
+          : error is FormatException
+          ? error.message
+          : 'Update could not be confirmed. Refresh before retrying.');
     } finally {
-      currentPasswordController.clear();
       if (mounted) setState(() => _saving = false);
     }
   }
 
   @override
   void dispose() {
-    nameController.dispose();
-    emailController.dispose();
-    schoolIdController.dispose();
-    currentPasswordController.dispose();
-    blockController.dispose();
-    departmentController.dispose();
+    _blockController.dispose();
     super.dispose();
+  }
+
+  Widget _readOnlyTile(IconData icon, String label, String value,
+      Color ink, Color muted, Color border) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      child: Row(children: [
+        Icon(icon, color: muted, size: 21),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(color: muted, fontSize: 12)),
+          const SizedBox(height: 3),
+          Text(value.isEmpty ? 'Not provided' : value,
+              style: TextStyle(color: ink, fontSize: 14, fontWeight: FontWeight.w600)),
+        ])),
+        Icon(Icons.lock_outline_rounded, color: muted, size: 16),
+      ]),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final courseChoices = <String>{
-      ...?_departmentCourses[selectedDepartment],
-      if (selectedCourse.isNotEmpty &&
-          selectedDepartment ==
-              _resolveDepartment(_originalDepartment, _originalCourse))
-        selectedCourse,
-    }.toList();
-    final departmentChoices = <String>{
-      ..._departmentCourses.keys,
-      if (selectedDepartment.isNotEmpty &&
-          !_departmentCourses.containsKey(selectedDepartment))
-        selectedDepartment,
-    }.toList();
-    final yearChoices = <String>{
-      if (selectedYear.isNotEmpty) selectedYear,
-      ..._years,
-    }.toList();
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final bg = dark ? const Color(0xFF0B1424) : const Color(0xFFF3F6FB);
+    final surface = dark ? const Color(0xFF17263C) : Colors.white;
+    final ink = dark ? const Color(0xFFF1F6FD) : const Color(0xFF17283F);
+    final muted = dark ? const Color(0xFFB2C0D0) : const Color(0xFF657489);
+    final border = dark ? const Color(0xFF31445C) : const Color(0xFFE0E7EF);
+    Widget panel(Widget child) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 8),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border),
+      ),
+      child: child,
+    );
+    Widget split() => Divider(height: 1, color: border);
     return Scaffold(
+      backgroundColor: bg,
       appBar: AppBar(
-        title: const Text('Edit Profile'),
-        actions: [
-          if (ApiConfig.useRealApi)
-            IconButton(
-              onPressed: (_loading || _saving) ? null : _fetchProfile,
-              tooltip: 'Refresh profile',
-              icon: const Icon(Icons.refresh),
-            ),
-        ],
+        title: Text('Edit Profile', style: TextStyle(
+            color: ink, fontWeight: FontWeight.w800, fontSize: 20)),
+        backgroundColor: bg,
+        foregroundColor: ink,
+        surfaceTintColor: Colors.transparent,
+        actions: [if (ApiConfig.useRealApi)
+          IconButton(
+            tooltip: 'Refresh profile',
+            onPressed: _loading || _saving ? null : _fetchProfile,
+            icon: const Icon(Icons.refresh_rounded),
+          )],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: appGradient,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(
-                          Icons.manage_accounts_rounded,
-                          color: yellow,
-                          size: 34,
-                        ),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Update Profile',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 20,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Keep your student information up to date.',
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  if (_loading) const LinearProgressIndicator(),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Column(
-                        children: [
-                          Text(_error!, style: TextStyle(color: scheme.error)),
-                          TextButton.icon(
-                            onPressed: _fetchProfile,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Retry'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          TextField(
-                            controller: nameController,
-                            enabled: !_loading && !_saving,
-                            maxLength: 255,
-                            textCapitalization: TextCapitalization.words,
-                            decoration: const InputDecoration(
-                              labelText: 'Full Name',
-                              prefixIcon: Icon(Icons.person_outline),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          TextField(
-                            controller: emailController,
-                            enabled: !_loading && !_saving,
-                            keyboardType: TextInputType.emailAddress,
-                            autocorrect: false,
-                            decoration: const InputDecoration(
-                              labelText: 'Email Address',
-                              prefixIcon: Icon(Icons.email_outlined),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          TextField(
-                            controller: schoolIdController,
-                            enabled: !_loading && !_saving,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              TextInputFormatter.withFunction((
-                                oldValue,
-                                newValue,
-                              ) {
-                                final text = _formatSchoolId(newValue.text);
-                                return TextEditingValue(
-                                  text: text,
-                                  selection: TextSelection.collapsed(
-                                    offset: text.length,
-                                  ),
-                                );
-                              }),
-                            ],
-                            decoration: const InputDecoration(
-                              labelText: 'School ID',
-                              hintText: '24-123456',
-                              helperText:
-                                  'Auto-formatted after the first two digits',
-                              prefixIcon: Icon(Icons.badge_outlined),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          DropdownButtonFormField<String>(
-                            key: ValueKey('department:$selectedDepartment'),
-                            initialValue: selectedDepartment.isEmpty
-                                ? null
-                                : selectedDepartment,
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Department',
-                              prefixIcon: Icon(Icons.account_balance_outlined),
-                            ),
-                            items: departmentChoices
-                                .map(
-                                  (department) => DropdownMenuItem<String>(
-                                    value: department,
-                                    child: Text(
-                                      department,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (_loading || _saving)
-                                ? null
-                                : (value) {
-                                    if (value == null ||
-                                        !_departmentCourses.containsKey(
-                                          value,
-                                        )) {
-                                      return;
-                                    }
-                                    setState(() {
-                                      selectedDepartment = value;
-                                      selectedCourse =
-                                          _departmentCourses[value]!.first;
-                                    });
-                                  },
-                          ),
-                          const SizedBox(height: 14),
-                          DropdownButtonFormField<String>(
-                            key: ValueKey(
-                              'course:$selectedDepartment:$selectedCourse',
-                            ),
-                            initialValue: courseChoices.contains(selectedCourse)
-                                ? selectedCourse
-                                : null,
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Course / Program',
-                              prefixIcon: Icon(Icons.school_outlined),
-                            ),
-                            items: courseChoices
-                                .map(
-                                  (course) => DropdownMenuItem<String>(
-                                    value: course,
-                                    child: Text(
-                                      course,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged:
-                                (_loading || _saving || courseChoices.isEmpty)
-                                ? null
-                                : (value) {
-                                    if (value != null) {
-                                      setState(() => selectedCourse = value);
-                                    }
-                                  },
-                          ),
-                          const SizedBox(height: 14),
-                          DropdownButtonFormField<String>(
-                            key: ValueKey('year:$selectedYear'),
-                            initialValue: selectedYear.isEmpty
-                                ? null
-                                : selectedYear,
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Year Level',
-                              prefixIcon: Icon(Icons.calendar_month_outlined),
-                            ),
-                            items: yearChoices
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(
-                                      value,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (_loading || _saving)
-                                ? null
-                                : (value) {
-                                    if (value != null) {
-                                      setState(() => selectedYear = value);
-                                    }
-                                  },
-                          ),
-                          const SizedBox(height: 14),
-                          TextFormField(
-                            controller: blockController,
-                            enabled: !_loading && !_saving,
-                            keyboardType: TextInputType.text,
-                            inputFormatters: [
-                              LengthLimitingTextInputFormatter(50),
-                            ],
-                            autovalidateMode:
-                                AutovalidateMode.onUserInteraction,
-                            validator: (value) =>
-                                value != null && value.trim().length > 50
-                                ? 'Block must not exceed 50 characters.'
-                                : null,
-                            decoration: const InputDecoration(
-                              labelText: 'Block',
-                              hintText: 'e.g. 1',
-                              helperText: 'Enter your block number',
-                              prefixIcon: Icon(Icons.groups_rounded),
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Course and year values must be accepted by eventEase. '
-                            'The server validates all edits.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: currentPasswordController,
-                            enabled: !_loading && !_saving,
-                            obscureText: !_passwordVisible,
-                            enableSuggestions: false,
-                            autocorrect: false,
-                            decoration: InputDecoration(
-                              labelText: 'Current Password',
-                              helperText:
-                                  'Required when changing School ID or email',
-                              prefixIcon: const Icon(Icons.lock_outline),
-                              suffixIcon: IconButton(
-                                tooltip: _passwordVisible
-                                    ? 'Hide password'
-                                    : 'Show password',
-                                icon: Icon(
-                                  _passwordVisible
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                ),
-                                onPressed: () => setState(
-                                  () => _passwordVisible = !_passwordVisible,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            height: 52,
-                            child: FilledButton.icon(
-                              onPressed:
-                                  (_saving ||
-                                      _loading ||
-                                      (ApiConfig.useRealApi && _error != null))
-                                  ? null
-                                  : saveChanges,
-                              icon: _saving
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.save_rounded),
-                              label: Text(
-                                _saving
-                                    ? 'Saving...'
-                                    : ApiConfig.useRealApi
-                                    ? 'Save Changes'
-                                    : 'Save Demo Changes',
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+      body: SafeArea(child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        child: Center(child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(gradient: appGradient,
+                  borderRadius: BorderRadius.circular(20)),
+              child: const Row(children: [
+                Icon(Icons.manage_accounts_rounded, color: yellow, size: 32),
+                SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Manage your profile', style: TextStyle(color: Colors.white,
+                        fontWeight: FontWeight.w800, fontSize: 19)),
+                    SizedBox(height: 4),
+                    Text('Review school records and update your block.',
+                        style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  ],
+                )),
+              ]),
+            ),
+            if (_loading) const Padding(padding: EdgeInsets.only(top: 12),
+                child: LinearProgressIndicator()),
+            if (_error != null) Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: panel(Column(children: [
+                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                TextButton.icon(onPressed: _loading ? null : _fetchProfile,
+                    icon: const Icon(Icons.refresh), label: const Text('Retry')),
+              ])),
+            ),
+            const SizedBox(height: 20),
+            Row(children: [
+              Icon(Icons.lock_outline_rounded, color: muted, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Official school information',
+                  style: TextStyle(color: ink, fontWeight: FontWeight.w800, fontSize: 17))),
+            ]),
+            const SizedBox(height: 5),
+            Text('To correct these details, contact the school administrator.',
+                style: TextStyle(color: muted, fontSize: 12)),
+            const SizedBox(height: 10),
+            panel(Column(children: [
+              _readOnlyTile(Icons.person_outline, 'Full Name', _name, ink, muted, border),
+              split(),
+              _readOnlyTile(Icons.badge_outlined, 'School ID', _schoolId, ink, muted, border),
+              split(),
+              _readOnlyTile(Icons.account_balance_outlined, 'Department',
+                  _department, ink, muted, border),
+              split(),
+              _readOnlyTile(Icons.school_outlined, 'Course / Program',
+                  _course, ink, muted, border),
+              split(),
+              _readOnlyTile(Icons.calendar_month_outlined, 'Year Level',
+                  _year, ink, muted, border),
+              split(),
+              _readOnlyTile(Icons.verified_user_outlined, 'Student Status',
+                  _studentStatus, ink, muted, border),
+            ])),
+            const SizedBox(height: 20),
+            Text('Contact information',
+                style: TextStyle(color: ink, fontWeight: FontWeight.w800, fontSize: 17)),
+            const SizedBox(height: 10),
+            panel(Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              _readOnlyTile(Icons.email_outlined, 'Email Address',
+                  _email, ink, muted, border),
+              Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(
+                  'Email changes are temporarily unavailable until verification is enabled.',
+                  style: TextStyle(color: muted, fontSize: 12))),
+            ])),
+            const SizedBox(height: 20),
+            Text('Editable information',
+                style: TextStyle(color: ink, fontWeight: FontWeight.w800, fontSize: 17)),
+            const SizedBox(height: 10),
+            panel(Padding(
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              child: TextFormField(
+                controller: _blockController,
+                enabled: !_loading && !_saving && _error == null,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Block',
+                  hintText: 'e.g. 1',
+
+                  prefixIcon: Icon(Icons.groups_outlined),
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-          ),
-        ),
-      ),
+            )),
+            const SizedBox(height: 16),
+            SizedBox(height: 52, child: FilledButton.icon(
+              onPressed: _loading || _saving || _error != null ? null : _save,
+              style: FilledButton.styleFrom(backgroundColor: navy,
+                  foregroundColor: Colors.white),
+              icon: _saving
+                  ? const SizedBox(width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save_outlined),
+              label: Text(_saving ? 'Saving...' : 'Save Block Changes'),
+            )),
+            const SizedBox(height: 10),
+            Text('All profile changes are checked by the Laravel server.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: muted, fontSize: 11)),
+          ]),
+        )),
+      )),
     );
   }
 }

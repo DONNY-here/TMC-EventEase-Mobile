@@ -44,8 +44,7 @@ class _SessionGateState extends State<SessionGate> {
     // DEMO MODE:
     // Restore only an explicitly remembered student.
     try {
-      final rememberStudent =
-      await demoSessionStorage.shouldRestoreStudent();
+      final rememberStudent = await demoSessionStorage.shouldRestoreStudent();
 
       if (!rememberStudent) {
         return false;
@@ -85,9 +84,7 @@ class _SessionGateState extends State<SessionGate> {
 
       return true;
     } catch (error) {
-      debugPrint(
-        'Demo session restoration failed: ${error.runtimeType}',
-      );
+      debugPrint('Demo session restoration failed: ${error.runtimeType}');
 
       authService.logout();
 
@@ -110,9 +107,7 @@ class _SessionGateState extends State<SessionGate> {
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(color: navy),
-            ),
+            body: Center(child: CircularProgressIndicator(color: navy)),
           );
         }
 
@@ -139,20 +134,24 @@ Future<Map<String, dynamic>> fetchEventEaseLaravelProfile(String token) async {
     throw const FormatException('A valid HTTPS Laravel API URL is required.');
   }
 
-  final response = await http.get(
-    base.replace(path: '/api/auth/me', query: null, fragment: null),
-    headers: {
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
-      'ngrok-skip-browser-warning': 'true',
-    },
-  ).timeout(const Duration(seconds: 20));
+  final response = await http
+      .get(
+        base.replace(path: '/api/auth/me', query: null, fragment: null),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      )
+      .timeout(const Duration(seconds: 20));
 
   if (response.statusCode == 401) {
     throw StateError('Your session has expired. Sign in again.');
   }
   if (response.statusCode != 200) {
-    throw StateError('Unable to load student profile (HTTP ${response.statusCode}).');
+    throw StateError(
+      'Unable to load student profile (HTTP ${response.statusCode}).',
+    );
   }
 
   final decoded = jsonDecode(response.body);
@@ -161,12 +160,12 @@ Future<Map<String, dynamic>> fetchEventEaseLaravelProfile(String token) async {
   }
   final payload = Map<String, dynamic>.from(decoded);
   final nested = payload['user'] ?? payload['data'];
-  final profile = nested is Map
-      ? Map<String, dynamic>.from(nested)
-      : payload;
+  final profile = nested is Map ? Map<String, dynamic>.from(nested) : payload;
   if ('${profile['name'] ?? ''}'.trim().isEmpty ||
       '${profile['role'] ?? ''}'.trim().isEmpty) {
-    throw const FormatException('Laravel returned incomplete account information.');
+    throw const FormatException(
+      'Laravel returned incomplete account information.',
+    );
   }
   final role = '${profile['role']}'.trim().toLowerCase();
   if (role != 'student' && role != 'scanner') {

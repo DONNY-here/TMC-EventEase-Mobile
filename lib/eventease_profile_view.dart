@@ -11,6 +11,7 @@ class EventEaseProfileView extends StatelessWidget {
   final String course;
   final String year;
   final String block;
+  final String studentStatus;
   final VoidCallback onEdit;
   final VoidCallback onLogout;
   final VoidCallback onResetPassword;
@@ -24,6 +25,7 @@ class EventEaseProfileView extends StatelessWidget {
     required this.course,
     required this.year,
     required this.block,
+    required this.studentStatus,
     required this.onEdit,
     required this.onLogout,
     required this.onResetPassword,
@@ -87,7 +89,7 @@ class EventEaseProfileView extends StatelessWidget {
     ].join(' • ');
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
         gradient: const LinearGradient(colors: [_navy, _blue]),
         borderRadius: BorderRadius.circular(22),
@@ -98,8 +100,8 @@ class EventEaseProfileView extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 62,
-                height: 62,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white.withValues(alpha: .14),
@@ -153,7 +155,7 @@ class EventEaseProfileView extends StatelessWidget {
             ],
           ),
           if (details.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             Text(
               details,
               maxLines: 2,
@@ -165,9 +167,9 @@ class EventEaseProfileView extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 17),
+          const SizedBox(height: 12),
           SizedBox(
-            height: 46,
+            height: 44,
             child: FilledButton.icon(
               onPressed: onEdit,
               style: FilledButton.styleFrom(
@@ -371,7 +373,17 @@ class EventEaseProfileView extends StatelessWidget {
       backgroundColor: darkMode
           ? const Color(0xFF101B2D)
           : const Color(0xFFF5F8FC),
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: Text(
+          'Profile',
+          style: TextStyle(color: _text(context), fontWeight: FontWeight.w800),
+        ),
+        foregroundColor: _text(context),
+        backgroundColor: darkMode
+            ? const Color(0xFF101B2D)
+            : const Color(0xFFF5F8FC),
+        surfaceTintColor: Colors.transparent,
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 17, 16, 30),
         children: [
@@ -442,6 +454,12 @@ class EventEaseProfileView extends StatelessWidget {
                       Icons.groups_outlined,
                       'Block',
                       _formattedBlock(block),
+                    ),
+                    _info(
+                      context,
+                      Icons.assignment_ind_outlined,
+                      'Student Status',
+                      studentStatus,
                     ),
                   ]),
                   const SizedBox(height: 23),

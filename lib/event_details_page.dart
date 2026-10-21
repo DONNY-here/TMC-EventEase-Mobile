@@ -982,7 +982,7 @@ class _EventDetailsPageState extends State<EventDetailsPage> {
         ? const Color(0xFF3978C5)
         : (_isRegistered ? const Color(0xFF24855E) : _accentColor);
     final title = live
-        ? 'Event preview — verify with Laravel'
+        ? 'Event preview — verified.'
         : _isRegistered
         ? 'You have a demo registration'
         : _eligibleToRegister

@@ -62,15 +62,17 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   Future<http.Response> _post(String path, Map<String, dynamic> body) {
-    return http.post(
-      _endpoint(path),
-      headers: const {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'ngrok-skip-browser-warning': 'true',
-      },
-      body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 20));
+    return http
+        .post(
+          _endpoint(path),
+          headers: const {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 20));
   }
 
   String _errorMessage(http.Response response) {
@@ -101,7 +103,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   Future<void> _run(Future<void> Function() operation) async {
     if (_busy) return;
     if (!ApiConfig.useRealApi) {
-      setState(() => _error = 'Email password recovery is unavailable in Demo Mode.');
+      setState(
+        () => _error = 'Email password recovery is unavailable in Demo Mode.',
+      );
       return;
     }
     setState(() {
@@ -127,7 +131,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       setState(() => _error = 'Enter a valid registered email address.');
       return;
     }
-    if (resend && _nextResendAt != null && DateTime.now().isBefore(_nextResendAt!)) {
+    if (resend &&
+        _nextResendAt != null &&
+        DateTime.now().isBefore(_nextResendAt!)) {
       setState(() => _error = 'Please wait before requesting another code.');
       return;
     }
@@ -227,7 +233,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    const headings = ['Forgot your password?', 'Check your email', 'Create a new password', 'Password updated'];
+    const headings = [
+      'Forgot your password?',
+      'Check your email',
+      'Create a new password',
+      'Password updated',
+    ];
     const descriptions = [
       'Enter your registered email address to receive a verification code.',
       'If the address belongs to an account, a six-digit code will be sent. Check your inbox and spam folder.',
@@ -258,11 +269,16 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       Align(
                         child: CircleAvatar(
                           radius: 34,
-                          backgroundColor: dark ? const Color(0xFF283F5B) : const Color(0xFFE6F0FC),
+                          backgroundColor: dark
+                              ? const Color(0xFF283F5B)
+                              : const Color(0xFFE6F0FC),
                           child: Icon(
-                            _step == 3 ? Icons.check_circle_outline_rounded
-                                : _step == 2 ? Icons.lock_reset_rounded
-                                : _step == 1 ? Icons.mark_email_unread_outlined
+                            _step == 3
+                                ? Icons.check_circle_outline_rounded
+                                : _step == 2
+                                ? Icons.lock_reset_rounded
+                                : _step == 1
+                                ? Icons.mark_email_unread_outlined
                                 : Icons.mail_outline_rounded,
                             size: 34,
                             color: dark ? _gold : _navy,
@@ -270,11 +286,25 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         ),
                       ),
                       const SizedBox(height: 17),
-                      Text(headings[_step], textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: colors.onSurface)),
+                      Text(
+                        headings[_step],
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 23,
+                          fontWeight: FontWeight.w800,
+                          color: colors.onSurface,
+                        ),
+                      ),
                       const SizedBox(height: 8),
-                      Text(descriptions[_step], textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13, height: 1.5, color: colors.onSurfaceVariant)),
+                      Text(
+                        descriptions[_step],
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.5,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
                       const SizedBox(height: 22),
                       if (_error != null) ...[
                         Container(
@@ -283,26 +313,45 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                             color: colors.errorContainer,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text(_error!, style: TextStyle(color: colors.onErrorContainer)),
+                          child: Text(
+                            _error!,
+                            style: TextStyle(color: colors.onErrorContainer),
+                          ),
                         ),
                         const SizedBox(height: 14),
                       ],
                       if (_step == 0) ...[
-                        _field(controller: emailController, label: 'Registered Email Address',
-                            icon: Icons.email_outlined, keyboard: TextInputType.emailAddress),
+                        _field(
+                          controller: emailController,
+                          label: 'Registered Email Address',
+                          icon: Icons.email_outlined,
+                          keyboard: TextInputType.emailAddress,
+                        ),
                         const SizedBox(height: 17),
                         FilledButton.icon(
                           onPressed: _busy ? null : () => _requestCode(),
                           icon: const Icon(Icons.send_outlined),
-                          label: Text(_busy ? 'Sending...' : 'Send Verification Code'),
+                          label: Text(
+                            _busy ? 'Sending...' : 'Send Verification Code',
+                          ),
                         ),
                       ],
                       if (_step == 1) ...[
-                        Text(_requestedEmail, textAlign: TextAlign.center,
-                            style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w600)),
+                        Text(
+                          _requestedEmail,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: colors.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: 16),
-                        _field(controller: _codeController, label: 'Six-digit Code',
-                            icon: Icons.pin_outlined, keyboard: TextInputType.number),
+                        _field(
+                          controller: _codeController,
+                          label: 'Six-digit Code',
+                          icon: Icons.pin_outlined,
+                          keyboard: TextInputType.number,
+                        ),
                         const SizedBox(height: 16),
                         FilledButton.icon(
                           onPressed: _busy ? null : _verifyCode,
@@ -311,35 +360,69 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         ),
                         const SizedBox(height: 6),
                         TextButton(
-                          onPressed: _busy ? null : () => _requestCode(resend: true),
+                          onPressed: _busy
+                              ? null
+                              : () => _requestCode(resend: true),
                           child: const Text('Resend code (after 60 seconds)'),
                         ),
                         TextButton(
-                          onPressed: _busy ? null : () => setState(() {
-                            _step = 0;
-                            _error = null;
-                          }),
+                          onPressed: _busy
+                              ? null
+                              : () => setState(() {
+                                  _step = 0;
+                                  _error = null;
+                                }),
                           child: const Text('Use a different email'),
                         ),
                       ],
                       if (_step == 2) ...[
-                        _field(controller: _passwordController, label: 'New Password',
-                            icon: Icons.lock_outline_rounded, obscure: !_passwordVisible,
-                            suffix: IconButton(
-                              tooltip: _passwordVisible ? 'Hide password' : 'Show password',
-                              icon: Icon(_passwordVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                              onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
-                            )),
+                        _field(
+                          controller: _passwordController,
+                          label: 'New Password',
+                          icon: Icons.lock_outline_rounded,
+                          obscure: !_passwordVisible,
+                          suffix: IconButton(
+                            tooltip: _passwordVisible
+                                ? 'Hide password'
+                                : 'Show password',
+                            icon: Icon(
+                              _passwordVisible
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                            ),
+                            onPressed: () => setState(
+                              () => _passwordVisible = !_passwordVisible,
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 13),
-                        _field(controller: _confirmController, label: 'Confirm New Password',
-                            icon: Icons.lock_outline_rounded, obscure: !_confirmVisible,
-                            suffix: IconButton(
-                              tooltip: _confirmVisible ? 'Hide password' : 'Show password',
-                              icon: Icon(_confirmVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                              onPressed: () => setState(() => _confirmVisible = !_confirmVisible),
-                            )),
+                        _field(
+                          controller: _confirmController,
+                          label: 'Confirm New Password',
+                          icon: Icons.lock_outline_rounded,
+                          obscure: !_confirmVisible,
+                          suffix: IconButton(
+                            tooltip: _confirmVisible
+                                ? 'Hide password'
+                                : 'Show password',
+                            icon: Icon(
+                              _confirmVisible
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                            ),
+                            onPressed: () => setState(
+                              () => _confirmVisible = !_confirmVisible,
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 8),
-                        Text('Use at least 8 characters.', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+                        Text(
+                          'Use at least 8 characters.',
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
                         const SizedBox(height: 17),
                         FilledButton.icon(
                           onPressed: _busy ? null : _resetPassword,
@@ -356,16 +439,23 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       if (_step != 3) ...[
                         const SizedBox(height: 12),
                         TextButton.icon(
-                          onPressed: _busy ? null : () => Navigator.pop(context),
+                          onPressed: _busy
+                              ? null
+                              : () => Navigator.pop(context),
                           icon: const Icon(Icons.arrow_back_rounded),
                           label: const Text('Back to Login'),
                         ),
                       ],
                       if (!ApiConfig.useRealApi) ...[
                         const SizedBox(height: 10),
-                        Text('Demo Mode: Password recovery requires Laravel.',
-                            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11),
-                            textAlign: TextAlign.center),
+                        Text(
+                          'Demo Mode: Password recovery requires Laravel.',
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 11,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ],
                     ],
                   ),

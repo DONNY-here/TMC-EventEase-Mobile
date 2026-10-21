@@ -79,7 +79,7 @@ class _RegisteredEventFinesPageState extends State<RegisteredEventFinesPage> {
         base.host.isEmpty ||
         base.userInfo.isNotEmpty ||
         (base.path.isNotEmpty && base.path != '/')) {
-      throw StateError('A secure HTTPS Laravel API address is required.');
+      throw StateError('A secure HTTPS API address is required.');
     }
     return base.replace(
       path: path,
@@ -105,7 +105,7 @@ class _RegisteredEventFinesPageState extends State<RegisteredEventFinesPage> {
       throw StateError('Your account is not authorized to view these records.');
     }
     if (response.statusCode != 200) {
-      throw StateError('Laravel returned HTTP ${response.statusCode}.');
+      throw StateError('eventEase returned HTTP ${response.statusCode}.');
     }
     return jsonDecode(response.body);
   }
@@ -119,12 +119,12 @@ class _RegisteredEventFinesPageState extends State<RegisteredEventFinesPage> {
     }
     if (records is! List) {
       throw const FormatException(
-        'Laravel returned an unexpected list response.',
+        'eventEase returned an unexpected list response.',
       );
     }
     return records.map((record) {
       if (record is! Map) {
-        throw const FormatException('Laravel returned an invalid record.');
+        throw const FormatException('Invalid record.');
       }
       return Map<String, dynamic>.from(record);
     }).toList();
@@ -141,16 +141,12 @@ class _RegisteredEventFinesPageState extends State<RegisteredEventFinesPage> {
     while (true) {
       final response = await _getJson(path, token, page: page);
       if (response is! Map) {
-        throw const FormatException(
-          'Laravel returned an unexpected paginated response.',
-        );
+        throw const FormatException('Unexpected paginated response.');
       }
       all.addAll(_rows(response));
       final pages = int.tryParse('${response['last_page'] ?? 1}');
       if (pages == null || pages < 1 || pages > 50) {
-        throw const FormatException(
-          'Invalid pagination information from Laravel.',
-        );
+        throw const FormatException('Invalid pagination information.');
       }
       if (page >= pages) break;
       page++;
@@ -354,7 +350,7 @@ class _RegisteredEventFinesPageState extends State<RegisteredEventFinesPage> {
         SizedBox(height: 8),
         Text(
           'Only fine records tied to your registered events appear here. '
-          'Laravel determines whether a fine applies.',
+          'eventEase determines whether a fine applies.',
           style: TextStyle(color: Colors.white70, height: 1.45),
         ),
       ],
@@ -407,7 +403,7 @@ class _RegisteredEventFinesPageState extends State<RegisteredEventFinesPage> {
           const SizedBox(height: 13),
           if (missingAmounts)
             const Text(
-              'Some approved amounts are unavailable from Laravel. '
+              'Some approved amounts are unavailable. '
               'Totals cannot be verified yet.',
             )
           else ...[
@@ -418,7 +414,7 @@ class _RegisteredEventFinesPageState extends State<RegisteredEventFinesPage> {
           ],
           const SizedBox(height: 8),
           Text(
-            'Amounts are calculated only from Laravel-approved fine records. '
+            'Amounts are calculated only from eventEase-approved fine records. '
             'Pending assessments are not counted as a payable balance.',
             style: TextStyle(
               fontSize: 11,
@@ -727,7 +723,7 @@ class _RegisteredEventFinesPageState extends State<RegisteredEventFinesPage> {
                               .timeout(const Duration(seconds: 20));
                           if (response.statusCode != 201) {
                             var message =
-                                'Laravel returned HTTP ${response.statusCode}.';
+                                'eventEase returned HTTP ${response.statusCode}.';
                             try {
                               final result = jsonDecode(response.body);
                               if (result is Map) {
@@ -821,7 +817,7 @@ class _RegisteredEventFinesPageState extends State<RegisteredEventFinesPage> {
               const SizedBox(height: 13),
               if (_unmatchedFineCount > 0) ...[
                 _info(
-                  '$_unmatchedFineCount fine record(s) returned by Laravel are not linked '
+                  '$_unmatchedFineCount fine record(s) returned are not linked '
                   'to your current registrations and are hidden from this page. '
                   'Contact the Web Admin to review whether those assessments should exist.',
                 ),
@@ -836,7 +832,7 @@ class _RegisteredEventFinesPageState extends State<RegisteredEventFinesPage> {
               if (_matchedFines.isEmpty)
                 _info(
                   'No fine records apply to your currently registered events. '
-                  'Only Laravel-assessed fines will appear here.',
+                  'Only eventEase-assessed fines will appear here.',
                 )
               else
                 for (final fine in _matchedFines) _fineCard(fine),
